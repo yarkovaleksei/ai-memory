@@ -91,14 +91,14 @@ func NewLibraryService(lib *library.Library, log *slog.Logger) *LibraryService {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &LibraryService{
-		lib: lib,
-		log: log,
-		emit: func(name string, data any) {
-			if a := application.Get(); a != nil {
-				a.Event.Emit(name, data)
-			}
-		},
+	return &LibraryService{lib: lib, log: log, emit: emitEvent}
+}
+
+// emitEvent отправляет событие во все окна; без запущенного приложения (в
+// тестах) — ничего не делает.
+func emitEvent(name string, data any) {
+	if a := application.Get(); a != nil {
+		a.Event.Emit(name, data)
 	}
 }
 

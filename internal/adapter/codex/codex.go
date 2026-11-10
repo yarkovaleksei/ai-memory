@@ -267,6 +267,12 @@ func (s scanner) notes(ctx context.Context) ([]model.Item, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Статус консолидации нужен только там, куда пишем: в неактивном поколении
+	// заметку Codex не учтёт никогда.
+	var pending map[string]bool
+	if !s.src.ReadOnly && len(names) > 0 {
+		pending, _ = PendingNotes(ctx, s.src.Root)
+	}
 	var out []model.Item
 	for _, name := range names {
 		if err := ctx.Err(); err != nil {
@@ -285,6 +291,7 @@ func (s scanner) notes(ctx context.Context) ([]model.Item, error) {
 		}
 		it.Description = markdown.FirstParagraph(content, 200)
 		it.Write = s.write(model.WriteDirect)
+		it.Pending = pending[path]
 		it.Project = model.ProjectRef{Global: true}
 		out = append(out, it)
 	}

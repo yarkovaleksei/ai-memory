@@ -20,9 +20,10 @@ import {
   useTranslate,
 } from "react-admin";
 import type { ListItem } from "../api/bindings";
+import { BulkDeleteFacts, CreateMenu, isSelectableFact } from "../edit/ItemActions";
 import { RELEVANCE, type AimDataProvider } from "../dataProvider";
 import { AgentBadge, TypeBadge } from "./badges";
-import { ItemPreview } from "./ItemPreview";
+import { ItemPreview, PendingChip } from "./ItemPreview";
 import { ProjectTree } from "./ProjectTree";
 import { splitSnippet, useErrorText } from "./text";
 
@@ -85,9 +86,10 @@ const ItemListView = () => {
           <Box sx={{ flex: 1, minWidth: 0, "& .RaFilterFormInput-body": { mr: 1 } }}>
             <FilterForm filters={itemFilters} />
           </Box>
-          <Box sx={{ pt: 1.5 }}>
+          <Stack direction="row" sx={{ pt: 1.5 }}>
+            <CreateMenu />
             <RebuildButton />
-          </Box>
+          </Stack>
         </Stack>
         <Box sx={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
           <ItemTable selected={selected} onSelect={open} />
@@ -116,7 +118,8 @@ const ItemTable = ({ selected, onSelect }: { selected: string | null; onSelect: 
   }
   return (
     <DataTable<Row>
-      bulkActionButtons={false}
+      bulkActionButtons={<BulkDeleteFacts />}
+      isRowSelectable={isSelectableFact}
       rowClick={(id) => {
         onSelect(String(id));
         return false;
@@ -141,6 +144,7 @@ const TitleCell = () => {
       <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
         {record.title}
       </Typography>
+      {record.pending && <PendingChip />}
       {record.snippet && (
         <Typography variant="caption" color="text.secondary" component="div" sx={{ wordBreak: "break-word" }}>
           {splitSnippet(record.snippet).map((p, i) =>

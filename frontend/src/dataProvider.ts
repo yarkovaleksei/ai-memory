@@ -2,11 +2,12 @@ import type { DataProvider, GetListParams, RaRecord } from "react-admin";
 import { LibraryService, type ItemQuery, type Stats } from "./api/bindings";
 import { AppError, call } from "./api/errors";
 
-// Ресурсы фазы 1 — только чтение:
+// Ресурсы — только чтение:
 //  - items    — записи памяти; фильтры, поиск, сортировка и страницы считает Go;
 //  - projects — проекты в порядке показа (уже отсортированы Go);
 //  - sources  — хранилища памяти.
-// Пишущие методы отклоняются: запись появится в фазе 2 через internal/writer.
+// Пишущие методы отклоняются: запись идёт не через CRUD react-admin, а планом с
+// diff (PlansService, src/edit/plans.tsx), чтобы ничего не писалось без подтверждения.
 
 // Поле сортировки «по релевантности»: Go сортирует по рангу при поиске и по дате без него.
 export const RELEVANCE = "relevance";

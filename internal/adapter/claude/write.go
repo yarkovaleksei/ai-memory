@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -176,21 +177,102 @@ func PlanUpdateRaw(file, hash, content string) (writer.Plan, error) {
 
 // PlanDelete удаляет факт и все строки MEMORY.md, которые на него ссылаются.
 func PlanDelete(file, hash string) (writer.Plan, error) {
-	current, err := readExpected(file, hash)
+	return PlanDeleteMany([]FactRef{{File: file, Hash: hash}})
+}
+
+// FactRef — файл факта и ContentHash, который видел пользователь.
+type FactRef struct {
+	File, Hash string
+}
+
+// PlanDeleteMany удаляет несколько фактов одним планом: строки индекса каждого
+// каталога убираются одним изменением MEMORY.md, иначе план менял бы один файл
+// дважды.
+func PlanDeleteMany(refs []FactRef) (writer.Plan, error) {
+	if len(refs) == 0 {
+		return writer.Plan{}, writer.Fail("write.empty-plan")
+	}
+	var changes []writer.Change
+	byDir := map[string][]string{}
+	var dirs []string
+	seen := map[string]bool{}
+	for _, r := range refs {
+		if seen[r.File] {
+			continue
+		}
+		seen[r.File] = true
+		current, err := readExpected(r.File, r.Hash)
+		if err != nil {
+			return writer.Plan{}, err
+		}
+		changes = append(changes, writer.Change{Path: r.File, BeforeExists: true, Before: current})
+		dir := filepath.Dir(r.File)
+		if byDir[dir] == nil {
+			dirs = append(dirs, dir)
+		}
+		byDir[dir] = append(byDir[dir], filepath.Base(r.File))
+	}
+	for _, dir := range dirs {
+		idx, err := readIndex(dir)
+		if err != nil {
+			return writer.Plan{}, err
+		}
+		for _, name := range byDir[dir] {
+			idx.after = removeLines(idx.after, name)
+		}
+		if idx.after != idx.before {
+			changes = append(changes, idx.change())
+		}
+	}
+	params := map[string]string{"count": strconv.Itoa(len(seen))}
+	if len(seen) == 1 {
+		params["name"] = strings.TrimSuffix(filepath.Base(changes[0].Path), filepath.Ext(changes[0].Path))
+	}
+	return writer.NewPlan(writer.Op{Code: "claude.fact.delete", Params: params}, changes...), nil
+}
+
+// FactDraft — факт с диска для редактора: исходник целиком, его хэш (его
+// интерфейс вернёт при построении плана) и поля формы. Parsed = false, если
+// frontmatter сломан: тогда правится только исходник.
+type FactDraft struct {
+	Content string    `json:"content"`
+	Hash    string    `json:"hash"`
+	Fact    FactInput `json:"fact"`
+	Parsed  bool      `json:"parsed"`
+}
+
+// ReadFact читает факт для правки.
+func ReadFact(file string) (FactDraft, error) {
+	data, err := os.ReadFile(file)
 	if err != nil {
-		return writer.Plan{}, err
+		return FactDraft{}, writer.Fail("write.unreadable", "path", file, "error", err.Error())
 	}
-	name := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
-	changes := []writer.Change{{Path: file, BeforeExists: true, Before: current}}
-	idx, err := readIndex(filepath.Dir(file))
-	if err != nil {
-		return writer.Plan{}, err
+	content := string(data)
+	d := FactDraft{Content: content, Hash: model.ContentHash(data)}
+	d.Fact.Name = strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+	fmText, body, has := markdown.SplitFrontmatter(content)
+	d.Fact.Body = strings.TrimLeft(body, "\n")
+	fm := map[string]any{}
+	d.Parsed = true
+	if has {
+		if fm, err = markdown.ParseFrontmatter(fmText); err != nil {
+			d.Parsed = false
+		}
 	}
-	idx.after = idx.remove(filepath.Base(file))
-	if idx.after != idx.before {
-		changes = append(changes, idx.change())
+	d.Fact.Description = markdown.String(fm, "description")
+	d.Fact.Type = markdown.String(fm, "metadata", "type")
+	if d.Fact.Type == "" {
+		d.Fact.Type = markdown.String(fm, "type")
 	}
-	return writer.NewPlan(writer.Op{Code: "claude.fact.delete", Params: map[string]string{"name": name}}, changes...), nil
+	if idx, err := readIndex(filepath.Dir(file)); err == nil {
+		for _, e := range parseIndex(idx.before) {
+			if e.File == filepath.Base(file) {
+				d.Fact.Title, d.Fact.Hook = e.Title, e.Hook
+				break
+			}
+		}
+	}
+	return d, nil
 }
 
 // PlanFixIndex приводит MEMORY.md в соответствие с файлами: убирает строки без
@@ -342,8 +424,6 @@ func (ix index) upsert(file, line string) string {
 	}
 	return strings.Join(out, ix.eol)
 }
-
-func (ix index) remove(file string) string { return removeLines(ix.before, file) }
 
 func removeLines(text, file string) string {
 	eol := "\n"

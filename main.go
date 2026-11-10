@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"log"
 	"log/slog"
@@ -44,12 +45,16 @@ func main() {
 		log.Fatalf("не удалось открыть индекс: %v", err)
 	}
 
+	plans, history := app.NewEditing(context.Background(), lib, cfg, slog.Default())
+
 	wailsApp := application.New(application.Options{
 		Name:        "ai-memory",
 		Description: "Просмотр и правка памяти Claude Code и Codex",
 		Services: []application.Service{
 			application.NewService(app.NewInfoService(version, cfg)),
 			application.NewService(app.NewLibraryService(lib, slog.Default())),
+			application.NewService(plans),
+			application.NewService(history),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

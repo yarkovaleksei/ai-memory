@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { Item, ItemQuery, Project, Source } from "../api/bindings";
+import type { Entry, Item, ItemQuery, Plan, Project, Source } from "../api/bindings";
 
 // Подмена модуля api/bindings для тестов: в jsdom нет Go-рантайма. Данные выдуманы
 // и повторяют форму того, что отдаёт LibraryService на фикстурах.
@@ -56,6 +56,32 @@ export const items: Item[] = [
     body: "Временный каталог.",
     file: "/fx/.claude/projects/-tmp-scratch-42/memory/scratch-note.md",
   } as unknown as Item,
+  {
+    ...base,
+    id: "i-note",
+    sourceId: "codex:v2",
+    projectId: "global",
+    agent: "codex",
+    kind: "codex-adhoc-note",
+    type: "",
+    title: "Сборка демо",
+    body: "# Сборка демо\n\n- Собирается командой make demo.",
+    file: "/fx/.codex/memories_v2/extensions/ad_hoc/notes/2026-01-03-sborka-demo.md",
+    pending: true,
+  } as unknown as Item,
+  {
+    ...base,
+    id: "i-section",
+    sourceId: "codex:v2",
+    projectId: "global",
+    agent: "codex",
+    kind: "codex-summary-section",
+    type: "",
+    title: "User preferences",
+    body: "- Prefers short answers.",
+    file: "/fx/.codex/memories_v2/memory_summary.md",
+    write: "via-note",
+  } as unknown as Item,
 ];
 
 export const projects: Project[] = [
@@ -103,6 +129,14 @@ export const sources: Source[] = [
     readOnly: false,
     warnings: [],
   },
+  {
+    id: "codex:v2",
+    agent: "codex",
+    label: "Codex v2",
+    root: "/fx/.codex/memories_v2",
+    readOnly: false,
+    warnings: [],
+  },
 ] as unknown as Source[];
 
 const temp = new Set(projects.filter((p) => p.temp).map((p) => p.id));
@@ -122,7 +156,90 @@ export const listItems = vi.fn((q: ItemQuery) => {
   });
 });
 
+// Планы — то, что вернул бы PlansService: путь и содержимое до и после.
+export const plan = (code: string, params: Record<string, string> = {}): Plan => ({
+  id: `plan-${code}`,
+  op: { code, params },
+  changes: [
+    {
+      path: "/fx/.claude/projects/-home-me-projects-demo/memory/prefer-yarn.md",
+      beforeExists: true,
+      before: "старое\n",
+      afterExists: true,
+      after: "новое\n",
+    },
+  ],
+});
+
+const rejectCode = (code: string, params: Record<string, string> = {}) =>
+  Promise.reject(Object.assign(new Error(code), { cause: { code, params } }));
+
+export const entries: Entry[] = [
+  {
+    commit: "abc1234def",
+    time: "2026-02-03T04:05:06Z",
+    op: { code: "claude.fact.update", params: { name: "prefer-yarn" } },
+    paths: ["/fx/.claude/projects/-home-me-projects-demo/memory/prefer-yarn.md"],
+  },
+];
+
+export const plansService = {
+  Status: vi.fn(() =>
+    Promise.resolve({
+      enabled: true,
+      reason: "",
+      codex: {
+        generation: "v2",
+        generationReason: "config",
+        consolidation: {
+          known: true,
+          status: "done",
+          finished: "2026-02-03T00:00:00Z",
+          notBefore: "2999-01-01T00:00:00Z",
+        },
+        cooldownHours: 6,
+      },
+    }),
+  ),
+  Draft: vi.fn((id: string) =>
+    id === "i-yarn"
+      ? Promise.resolve({
+          content: "---\nname: prefer-yarn\n---\n\nСтавь пакеты через yarn.\n",
+          hash: "h-yarn",
+          fact: {
+            name: "prefer-yarn",
+            description: "Только yarn",
+            type: "feedback",
+            title: "Пакеты только через yarn",
+            hook: "",
+            body: "Ставь пакеты через yarn.",
+          },
+        })
+      : Promise.resolve({ content: "# Сборка демо\n", hash: "h-note", fact: null }),
+  ),
+  UpdateFact: vi.fn(() => Promise.resolve(plan("claude.fact.update", { name: "prefer-yarn" }))),
+  UpdateSource: vi.fn(() => Promise.resolve(plan("codex.note.update", { file: "x.md" }))),
+  CreateFact: vi.fn(() => Promise.resolve(plan("claude.fact.create", { name: "x" }))),
+  DeleteFacts: vi.fn((ids: string[]) =>
+    Promise.resolve(plan("claude.fact.delete", { count: String(ids.length) })),
+  ),
+  FixIndex: vi.fn(() => Promise.resolve(plan("claude.index.fix"))),
+  CreateNote: vi.fn(() => Promise.resolve(plan("codex.note.create", { title: "x" }))),
+  ForgetNote: vi.fn((title: string) => Promise.resolve(plan("codex.note.forget", { title }))),
+  Apply: vi.fn((): Promise<unknown> => Promise.resolve({ commit: "fff0000", stats: {} })),
+  Discard: vi.fn(() => Promise.resolve()),
+};
+
+export const historyService = {
+  List: vi.fn(() => Promise.resolve(entries)),
+  Revert: vi.fn((commit: string) => Promise.resolve(plan("revert", { commit, op: "claude.fact.update" }))),
+};
+
+export { rejectCode };
+
 export const fakeBindings = () => ({
+  PlansService: plansService,
+  HistoryService: historyService,
   InfoService: {
     Info: () =>
       Promise.resolve({

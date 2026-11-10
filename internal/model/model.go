@@ -95,6 +95,8 @@ type Item struct {
 	Hash        string         `json:"hash"` // sha256 содержимого файла
 	Write       WriteMode      `json:"write"`
 	Warnings    []Warning      `json:"warnings"`
+	// Pending — агент ещё не учёл запись: заметка Codex ждёт консолидации.
+	Pending bool `json:"pending"`
 
 	Project ProjectRef `json:"-"`
 }

@@ -1,7 +1,9 @@
-import { Alert, Box, Chip, Divider, Stack, Tab, Tabs, Typography } from "@mui/material";
+import { Alert, Box, Chip, Divider, Stack, Tab, Tabs, Tooltip, Typography } from "@mui/material";
 import { useState } from "react";
 import { DateField, RecordContextProvider, useGetOne, useTranslate } from "react-admin";
 import type { Item, Project, Source } from "../api/bindings";
+import { ItemActions } from "../edit/ItemActions";
+import { useConsolidationHint } from "../edit/plans";
 import { AgentBadge, TypeBadge } from "./badges";
 import { Markdown } from "./Markdown";
 import { useErrorText, useWarningText } from "./text";
@@ -15,8 +17,8 @@ interface ItemPreviewProps {
   onOpenItem: (id: string) => void;
 }
 
-// Просмотр записи справа от списка: текст с рабочими ссылками на другие записи
-// и исходник с метаданными. Только чтение — правка появится в фазе 2.
+// Просмотр записи справа от списка: текст с рабочими ссылками на другие записи,
+// исходник с метаданными и действия правки, доступные для этого вида записи.
 export const ItemPreview = ({ id, onOpenItem }: ItemPreviewProps) => {
   const translate = useTranslate();
   const errorText = useErrorText();
@@ -43,6 +45,17 @@ export const ItemPreview = ({ id, onOpenItem }: ItemPreviewProps) => {
   }
   // key сбрасывает выбранную вкладку при переходе к другой записи.
   return <ItemView key={data.id} item={data} onOpenItem={onOpenItem} />;
+};
+
+// Заметка, которую Codex ещё не учёл: подсказка говорит, когда учтёт.
+export const PendingChip = () => {
+  const translate = useTranslate();
+  const hint = useConsolidationHint();
+  return (
+    <Tooltip title={hint}>
+      <Chip size="small" color="warning" variant="outlined" label={translate("aim.codex.pending")} />
+    </Tooltip>
+  );
 };
 
 const Placeholder = ({ text }: { text: string }) => (
@@ -87,10 +100,12 @@ const ItemView = ({ item, onOpenItem }: { item: Rec<Item>; onOpenItem: (id: stri
             variant="outlined"
             label={translate(`aim.write.${item.write}`, { _: item.write })}
           />
+          {item.pending && <PendingChip />}
           <Typography variant="body2" color="text.secondary" component="span">
             <DateField source="modTime" showTime />
           </Typography>
         </Stack>
+        <ItemActions item={item} />
         {item.description && <Typography color="text.secondary">{item.description}</Typography>}
         {warnings.length > 0 && (
           <Alert severity="warning">

@@ -3,6 +3,7 @@ import { Admin, CustomRoutes, defaultDarkTheme, defaultLightTheme, Resource } fr
 import { Route } from "react-router-dom";
 import { Dashboard } from "./Dashboard";
 import { dataProvider } from "./dataProvider";
+import { HistoryPage } from "./history/HistoryPage";
 import { i18nProvider } from "./i18n";
 import { ItemList } from "./items/ItemList";
 import { Layout } from "./layout/Layout";
@@ -22,6 +23,7 @@ export const App = () => (
     <Resource name="projects" />
     <Resource name="sources" />
     <CustomRoutes>
+      <Route path="/history" element={<HistoryPage />} />
       <Route path="/about" element={<Dashboard />} />
     </CustomRoutes>
   </Admin>

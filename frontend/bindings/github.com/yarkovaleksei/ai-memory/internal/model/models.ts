@@ -63,6 +63,11 @@ export interface Item {
     "hash": string;
     "write": WriteMode;
     "warnings": Warning[] | null;
+
+    /**
+     * Pending — агент ещё не учёл запись: заметка Codex ждёт консолидации.
+     */
+    "pending": boolean;
 }
 
 /**

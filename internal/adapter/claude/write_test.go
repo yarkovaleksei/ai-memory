@@ -263,3 +263,37 @@ func TestPlanFixIndex(t *testing.T) {
 		t.Errorf("повторная починка должна быть пустой: %v", err)
 	}
 }
+
+func TestReadFact(t *testing.T) {
+	f := newFixture(t)
+	d, err := ReadFact(filepath.Join(f.memDir, "prefer-yarn.md"))
+	if err != nil || !d.Parsed || d.Hash != f.hash(t, "prefer-yarn.md") {
+		t.Fatalf("%+v %v", d, err)
+	}
+	want := FactInput{Name: "prefer-yarn", Type: "feedback", Title: "Пакеты только через yarn"}
+	if d.Fact.Name != want.Name || d.Fact.Type != want.Type || d.Fact.Title != want.Title || d.Fact.Description == "" || d.Fact.Body == "" {
+		t.Errorf("поля формы: %+v", d.Fact)
+	}
+	// Без правок форма даёт тот же файл, кроме отметки времени.
+	p, err := PlanUpdate(filepath.Join(f.memDir, "prefer-yarn.md"), d.Hash, d.Fact)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dropModified := func(s string) string {
+		var out []string
+		for _, l := range strings.Split(s, "\n") {
+			if !strings.HasPrefix(strings.TrimSpace(l), "modified:") {
+				out = append(out, l)
+			}
+		}
+		return strings.Join(out, "\n")
+	}
+	if len(p.Changes) != 1 || dropModified(p.Changes[0].After) != dropModified(d.Content) {
+		t.Errorf("план без правок должен менять только modified:\n%s\n%d изменений", p.Changes[0].After, len(p.Changes))
+	}
+
+	broken, err := ReadFact(filepath.Join(f.memDir, "broken-frontmatter.md"))
+	if err != nil || broken.Parsed || broken.Content == "" {
+		t.Errorf("сломанный frontmatter правится только исходником: %+v %v", broken, err)
+	}
+}

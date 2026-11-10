@@ -3,6 +3,15 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as claude$0 from "../adapter/claude/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as codex$0 from "../adapter/codex/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as library$0 from "../library/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as model$0 from "../model/models.js";
 
 /**
@@ -14,6 +23,51 @@ export interface AppInfo {
     "dataDir": string;
     "claudeProfiles": string[] | null;
     "codexHome": string;
+}
+
+/**
+ * ApplyResult — коммит операции в истории и индекс после записи.
+ */
+export interface ApplyResult {
+    "commit": string;
+    "stats": library$0.Stats;
+}
+
+/**
+ * CodexStatus — куда пишутся заметки и когда Codex их учтёт.
+ */
+export interface CodexStatus {
+    "generation": string;
+    "generationReason": string;
+    "consolidation": codex$0.Consolidation;
+    "cooldownHours": number;
+}
+
+/**
+ * Draft — файл записи для редактора. Hash интерфейс возвращает при построении
+ * плана: если файл с тех пор изменился, план не построится, а не затрёт чужую правку.
+ */
+export interface Draft {
+    "content": string;
+    "hash": string;
+
+    /**
+     * поля формы факта Claude; nil — правится только исходник
+     */
+    "fact": claude$0.FactInput | null;
+}
+
+/**
+ * EditStatus — можно ли писать и что известно о Codex.
+ */
+export interface EditStatus {
+    "enabled": boolean;
+
+    /**
+     * код причины, если запись выключена
+     */
+    "reason": string;
+    "codex": CodexStatus;
 }
 
 /**
@@ -90,5 +144,10 @@ export interface ListItem {
     "hash": string;
     "write": model$0.WriteMode;
     "warnings": model$0.Warning[] | null;
+
+    /**
+     * Pending — агент ещё не учёл запись: заметка Codex ждёт консолидации.
+     */
+    "pending": boolean;
     "snippet": string;
 }
