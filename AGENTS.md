@@ -67,7 +67,7 @@ ai-memory — десктоп-приложение (Go + Wails v3, react-admin) �
 Все задачи — в `Taskfile.yml`, запуск через `wails3 task <имя>` из корня репозитория. Нужны Go 1.26, Node 24 с corepack (yarn 4.18.1 подтянется сам) и `wails3` v3.0.0 (`go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0`); на Linux — GTK 4 и WebKitGTK 6.0 (`wails3 doctor` покажет, чего не хватает).
 
 ```bash
-wails3 task dev          # окно в режиме разработки на фикстурах
+wails3 task dev          # окно в режиме разработки на свежей копии фикстур (.task/dev-home)
 wails3 task dev REAL=true  # то же на настоящей памяти — только для приёмки
 wails3 task check        # всё перед коммитом: yarn install --immutable, тесты, типы, линтеры
 wails3 task test         # go test ./internal/... и Vitest

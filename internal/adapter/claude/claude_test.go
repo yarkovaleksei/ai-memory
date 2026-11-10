@@ -86,7 +86,7 @@ func TestScanFacts(t *testing.T) {
 		{"Трекер задач", model.KindClaudeFact, "reference", nil, "/home/me/projects/demo"},
 		{"Сломанный frontmatter", model.KindClaudeFact, "", []string{"claude.frontmatter.invalid"}, "/home/me/projects/demo"},
 		{"orphan-fact", model.KindClaudeFact, "project", []string{"claude.index.not-listed"}, "/home/me/projects/demo"},
-		{"MEMORY.md", model.KindClaudeIndex, "", []string{"claude.index.missing-file"}, "/home/me/projects/demo"},
+		{"MEMORY.md", model.KindClaudeIndex, "", []string{"claude.index.missing-file", "claude.index.unlisted"}, "/home/me/projects/demo"},
 		{"Старый формат", model.KindClaudeFact, "project", nil, ""},
 		{"Черновик", model.KindClaudeFact, "project", nil, "/tmp/scratch-42"},
 	}

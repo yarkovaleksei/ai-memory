@@ -22,11 +22,12 @@ import {
   type MergeDraft,
   type NoteText,
 } from "../api/bindings";
-import { CodeEditor } from "../edit/CodeEditor";
-import { FactForm } from "../edit/FactEditor";
-import { ConsolidationAlert } from "../edit/NoteEditor";
-import { useRunPlan } from "../edit/plans";
-import { factName } from "../edit/TransferDialog";
+import { CodeEditor } from "./CodeEditor";
+import { FactForm } from "./FactEditor";
+import { ConsolidationAlert } from "./NoteEditor";
+import { useWritableAgents } from "./agents";
+import { useRunPlan } from "./plans";
+import { factName } from "./TransferDialog";
 import { LLMActions, useLLMCall } from "../llm/llm";
 
 type Target = "claude" | "codex";
@@ -54,11 +55,28 @@ interface Drafted {
 
 // MergeDialog — объединение группы: одна новая запись, факты Claude группы
 // удаляются, для записей Codex — заметки «Забыть». Всё одним планом.
-export const MergeDialog = ({ items, onClose }: { items: Item[]; onClose: () => void }) => {
+export const MergeDialog = ({
+  items,
+  onClose,
+  onApplied,
+}: {
+  items: Item[];
+  onClose: () => void;
+  onApplied?: () => void; // после записи: например, снять отметки в списке
+}) => {
+  const done = () => {
+    onApplied?.();
+    onClose();
+  };
   const translate = useTranslate();
   const notify = useNotify();
   const facts = items.filter((it) => it.agent === "claude");
-  const [target, setTarget] = useState<Target>(facts.length > 0 ? "claude" : "codex");
+  // Итог пишется только туда, где есть хранилище для записи.
+  const agents = useWritableAgents();
+  const targets = (["claude", "codex"] as const).filter((t) => agents[t]);
+  const preferred: Target = facts.length > 0 && agents.claude ? "claude" : agents.codex ? "codex" : "claude";
+  const [chosen, setTarget] = useState<Target | null>(null);
+  const target: Target = chosen && agents[chosen] ? chosen : preferred;
   const [drafted, setDrafted] = useState<Drafted | null>(null);
   const llm = useLLMCall<MergeDraft>();
   const forget: NoteText[] = items
@@ -80,14 +98,16 @@ export const MergeDialog = ({ items, onClose }: { items: Item[]; onClose: () => 
   const extra = (
     <Stack spacing={1.5}>
       <ToggleButtonGroup
-        size="small"
         exclusive
         value={target}
         onChange={(_, v: Target | null) => v && setTarget(v)}
         aria-label={translate("aim.transfer.target")}
       >
-        <ToggleButton value="claude">{translate("aim.merge.targets.claude")}</ToggleButton>
-        <ToggleButton value="codex">{translate("aim.merge.targets.codex")}</ToggleButton>
+        {targets.map((t) => (
+          <ToggleButton key={t} value={t}>
+            {translate(`aim.merge.targets.${t}`)}
+          </ToggleButton>
+        ))}
       </ToggleButtonGroup>
       <Alert severity="warning">
         {translate("aim.merge.effect", {
@@ -143,6 +163,7 @@ export const MergeDialog = ({ items, onClose }: { items: Item[]; onClose: () => 
           }
           extra={extra}
           onClose={onClose}
+          onApplied={done}
         />
       ) : (
         <ToCodex
@@ -152,6 +173,7 @@ export const MergeDialog = ({ items, onClose }: { items: Item[]; onClose: () => 
           extra={extra}
           forget={forget}
           onClose={onClose}
+          onApplied={done}
         />
       )}
     </Dialog>
@@ -190,12 +212,14 @@ const ToCodex = ({
   extra,
   forget,
   onClose,
+  onApplied,
 }: {
   items: Item[];
   drafted: Drafted | null;
   extra: ReactNode;
   forget: NoteText[];
   onClose: () => void;
+  onApplied: () => void;
 }) => {
   const translate = useTranslate();
   const runPlan = useRunPlan();
@@ -234,7 +258,7 @@ const ToCodex = ({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{translate("ra.action.cancel")}</Button>
-        <Button variant="contained" onClick={() => void runPlan(merge, { onApplied: onClose })}>
+        <Button variant="contained" onClick={() => void runPlan(merge, { onApplied })}>
           {translate("aim.plan.preview")}
         </Button>
       </DialogActions>

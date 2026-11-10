@@ -13,7 +13,6 @@ export type {
   ApplyResult,
   CodexStatus,
   Contradiction,
-  ContradictionReport,
   Draft,
   EditStatus,
   ItemPage,
@@ -21,9 +20,7 @@ export type {
   ListItem,
   MergeRequest,
   NoteText,
-  SimilarGroup,
   SettingsView,
-  SimilarQuery,
   TransferLink,
 } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/app";
 export { Agent } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/model";

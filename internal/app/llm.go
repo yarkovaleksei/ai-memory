@@ -47,13 +47,9 @@ func (s *LLMService) MergeDraft(ctx context.Context, itemIDs []string, agent mod
 	if len(itemIDs) < 2 {
 		return llm.MergeDraft{}, fail("merge.too-few")
 	}
-	items := make([]model.Item, 0, len(itemIDs))
-	for _, id := range itemIDs {
-		it, err := s.lib.Get(ctx, id)
-		if err != nil {
-			return llm.MergeDraft{}, toError(err, s.log)
-		}
-		items = append(items, it)
+	items, _, err := s.items(ctx, itemIDs)
+	if err != nil {
+		return llm.MergeDraft{}, err
 	}
 	d, err := s.client().Merge(ctx, agent, items)
 	if err != nil {
@@ -69,43 +65,44 @@ type Contradiction struct {
 	Items   []model.Item `json:"items"`
 }
 
-// ContradictionReport — итог проверки. Checked < Groups — не все группы
-// поместились в один запрос: стоит сузить выбор (проект, порог).
-type ContradictionReport struct {
-	Groups         int             `json:"groups"`
-	Checked        int             `json:"checked"`
-	Contradictions []Contradiction `json:"contradictions"`
-}
-
-// Contradictions ищет противоречия внутри групп похожих записей: кандидатов
-// отбирает TF-IDF экрана «Похожие», модель только сравнивает их тексты. Так
-// запрос один и небольшой, а не «вся память против всей памяти».
-func (s *LLMService) Contradictions(ctx context.Context, q SimilarQuery, agent model.Agent) (ContradictionReport, error) {
-	groups, err := similarGroups(ctx, s.lib, q)
+// Contradictions ищет противоречия среди записей, которые пользователь
+// отметил в списке: уходят только они.
+func (s *LLMService) Contradictions(ctx context.Context, itemIDs []string, agent model.Agent) ([]Contradiction, error) {
+	if len(itemIDs) < 2 {
+		return []Contradiction{}, fail("merge.too-few")
+	}
+	items, byID, err := s.items(ctx, itemIDs)
 	if err != nil {
-		return ContradictionReport{}, toError(err, s.log)
+		return []Contradiction{}, err
 	}
-	in := make([][]model.Item, len(groups))
-	byID := map[string]model.Item{}
-	for i, g := range groups {
-		in[i] = g.Items
-		for _, it := range g.Items {
-			byID[it.ID] = it
-		}
-	}
-	found, checked, err := s.client().Contradictions(ctx, agent, in)
+	found, err := s.client().Contradictions(ctx, agent, items)
 	if err != nil {
-		return ContradictionReport{}, s.error(err)
+		return []Contradiction{}, s.error(err)
 	}
-	out := ContradictionReport{Groups: len(groups), Checked: checked, Contradictions: []Contradiction{}}
+	out := make([]Contradiction, 0, len(found))
 	for _, c := range found {
 		v := Contradiction{Summary: c.Summary}
 		for _, id := range c.ItemIDs {
 			v.Items = append(v.Items, byID[id])
 		}
-		out.Contradictions = append(out.Contradictions, v)
+		out = append(out, v)
 	}
 	return out, nil
+}
+
+// items читает записи целиком по ID в порядке запроса.
+func (s *LLMService) items(ctx context.Context, ids []string) ([]model.Item, map[string]model.Item, error) {
+	out := make([]model.Item, 0, len(ids))
+	byID := make(map[string]model.Item, len(ids))
+	for _, id := range ids {
+		it, err := s.lib.Get(ctx, id)
+		if err != nil {
+			return nil, nil, toError(err, s.log)
+		}
+		out = append(out, it)
+		byID[id] = it
+	}
+	return out, byID, nil
 }
 
 // error переводит отказ llm в код для интерфейса; подробности — в журнал.

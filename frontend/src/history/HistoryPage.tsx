@@ -88,7 +88,6 @@ const HistoryTable = ({ entries, canWrite }: { entries: Entry[]; canWrite: boole
             </TableCell>
             <TableCell align="right">
               <Button
-                size="small"
                 disabled={!canWrite}
                 onClick={() =>
                   void runPlan(() => HistoryService.Revert(e.commit, translate("aim.codex.cancelNote")))

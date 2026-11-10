@@ -31,12 +31,11 @@ export function Agents(): $CancellablePromise<model$0.Agent[] | null> {
 }
 
 /**
- * Contradictions ищет противоречия внутри групп похожих записей: кандидатов
- * отбирает TF-IDF экрана «Похожие», модель только сравнивает их тексты. Так
- * запрос один и небольшой, а не «вся память против всей памяти».
+ * Contradictions ищет противоречия среди записей, которые пользователь
+ * отметил в списке: уходят только они.
  */
-export function Contradictions(q: $models.SimilarQuery, agent: model$0.Agent): $CancellablePromise<$models.ContradictionReport> {
-    return $Call.ByID(2643549057, q, agent);
+export function Contradictions(itemIDs: string[] | null, agent: model$0.Agent): $CancellablePromise<$models.Contradiction[] | null> {
+    return $Call.ByID(2643549057, itemIDs, agent);
 }
 
 /**

@@ -59,11 +59,10 @@ const mergeInstructions = `Ты помогаешь навести порядок
 `
 
 const contradictionsInstructions = `Ты проверяешь память ИИ-агентов Claude Code и Codex на противоречия.
-Ниже группы похожих записей памяти. Найди пары записей, которые утверждают разное об одном и том же:
+Ниже записи памяти, которые выбрал пользователь. Найди пары записей, которые утверждают разное об одном и том же:
 разные значения, версии, базовые ветки, команды или правила для одного и того же проекта или инструмента.
 
 Правила:
-- Сравнивай записи только внутри одной группы.
 - Не считай противоречием, если одна запись просто подробнее другой, или если записи о разных проектах.
 - Для каждой пары укажи номера записей a и b и одно предложение на языке записей: в чём расхождение.
 - Нет противоречий — пустой список.
@@ -81,8 +80,8 @@ func (c *Client) Merge(ctx context.Context, agent model.Agent, items []model.Ite
 		writeRecord(&b, i+1, it)
 	}
 	b.WriteString("</records>\n")
-	if utf8.RuneCountInString(b.String()) > MaxPromptRunes {
-		return MergeDraft{}, fail(ErrTooLarge, "max", strconv.Itoa(MaxPromptRunes))
+	if n := utf8.RuneCountInString(b.String()); n > MaxPromptRunes {
+		return MergeDraft{}, fail(ErrTooLarge, "size", strconv.Itoa(n), "max", strconv.Itoa(MaxPromptRunes))
 	}
 
 	var ans struct {
@@ -115,33 +114,18 @@ func (c *Client) Merge(ctx context.Context, agent model.Agent, items []model.Ite
 	return out, nil
 }
 
-// Contradictions проверяет группы похожих записей одним запросом: на каждый
-// запрос CLI тратит время на запуск и тысячи токенов на системный промпт.
-// Группы берутся по порядку, пока помещаются в MaxPromptRunes; checked —
-// сколько групп проверено.
-func (c *Client) Contradictions(ctx context.Context, agent model.Agent, groups [][]model.Item) (found []Contradiction, checked int, err error) {
+// Contradictions ищет противоречия среди записей, которые выбрал
+// пользователь, одним запросом.
+func (c *Client) Contradictions(ctx context.Context, agent model.Agent, items []model.Item) ([]Contradiction, error) {
 	var b strings.Builder
 	b.WriteString(contradictionsInstructions)
-	var flat []model.Item
-	for gi, g := range groups {
-		var gb strings.Builder
-		fmt.Fprintf(&gb, "\n<group n=\"%d\">\n", gi+1)
-		for i, it := range g {
-			writeRecord(&gb, len(flat)+i+1, it)
-		}
-		gb.WriteString("</group>\n")
-		if utf8.RuneCountInString(b.String())+utf8.RuneCountInString(gb.String()) > MaxPromptRunes {
-			break
-		}
-		b.WriteString(gb.String())
-		flat = append(flat, g...)
-		checked++
+	b.WriteString("\n<records>\n")
+	for i, it := range items {
+		writeRecord(&b, i+1, it)
 	}
-	if checked == 0 {
-		if len(groups) == 0 {
-			return []Contradiction{}, 0, nil
-		}
-		return nil, 0, fail(ErrTooLarge, "max", strconv.Itoa(MaxPromptRunes))
+	b.WriteString("</records>\n")
+	if n := utf8.RuneCountInString(b.String()); n > MaxPromptRunes {
+		return nil, fail(ErrTooLarge, "size", strconv.Itoa(n), "max", strconv.Itoa(MaxPromptRunes))
 	}
 
 	var ans struct {
@@ -152,12 +136,12 @@ func (c *Client) Contradictions(ctx context.Context, agent model.Agent, groups [
 		} `json:"contradictions"`
 	}
 	if err := c.Ask(ctx, agent, b.String(), contradictionsSchema, &ans); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	found = []Contradiction{}
+	found := []Contradiction{}
 	seen := map[string]bool{}
 	for _, ct := range ans.Contradictions {
-		ids := pick(flat, []int{ct.A, ct.B})
+		ids := pick(items, []int{ct.A, ct.B})
 		if len(ids) != 2 || strings.TrimSpace(ct.Summary) == "" {
 			continue
 		}
@@ -171,7 +155,7 @@ func (c *Client) Contradictions(ctx context.Context, agent model.Agent, groups [
 		seen[key] = true
 		found = append(found, Contradiction{ItemIDs: ids, Summary: strings.TrimSpace(ct.Summary)})
 	}
-	return found, checked, nil
+	return found, nil
 }
 
 // pick переводит номера записей из ответа в ID: номера вне списка и повторы

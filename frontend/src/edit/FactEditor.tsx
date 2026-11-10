@@ -1,5 +1,6 @@
 import {
   Alert,
+  Autocomplete,
   Button,
   Dialog,
   DialogActions,
@@ -75,6 +76,7 @@ interface FactFormProps {
   draft?: Draft;
   projectId?: string;
   onClose: () => void;
+  onApplied?: () => void; // после записи; по умолчанию — onClose
   // Для переноса: поля заполнены из исходной записи, план строит перенос.
   initial?: Partial<FactInput>;
   build?: (sourceId: string, projectId: string, fact: FactInput) => Promise<Plan>;
@@ -89,6 +91,7 @@ export const FactForm = ({
   draft,
   projectId,
   onClose,
+  onApplied,
   initial,
   build: buildNew,
   extra,
@@ -126,7 +129,7 @@ export const FactForm = ({
     else if (!editing) build = () => PlansService.CreateFact(sourceId, project, fact);
     else if (tab === "source") build = () => PlansService.UpdateSource(itemId, baseHash, content);
     else build = () => PlansService.UpdateFact(itemId, baseHash, fact);
-    void runPlan(build, { onApplied: onClose });
+    void runPlan(build, { onApplied: onApplied ?? onClose });
   };
 
   return (
@@ -145,20 +148,23 @@ export const FactForm = ({
           )}
           {!editing && (
             <Stack direction="row" spacing={2}>
-              <TextField
-                select
-                label={translate("aim.fact.fields.project")}
-                value={project}
-                onChange={(e) => setProject(e.target.value)}
+              {/* Проектов десятки: поле с поиском, а не список на весь экран. */}
+              <Autocomplete
                 sx={{ flex: 2 }}
-                helperText={translate("aim.fact.help.project")}
-              >
-                {projectChoices.map((p) => (
-                  <MenuItem key={p.id} value={p.id}>
-                    {p.path || p.label}
-                  </MenuItem>
-                ))}
-              </TextField>
+                options={projectChoices}
+                value={projectChoices.find((p) => p.id === project) ?? null}
+                onChange={(_, p) => setProject(p?.id ?? "")}
+                getOptionLabel={(p) => p.path || p.label}
+                isOptionEqualToValue={(a, b) => a.id === b.id}
+                noOptionsText={translate("aim.projects.notFound")}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={translate("aim.fact.fields.project")}
+                    helperText={translate("aim.fact.help.project")}
+                  />
+                )}
+              />
               <TextField
                 select
                 label={translate("aim.fact.fields.profile")}

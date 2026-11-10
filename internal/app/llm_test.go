@@ -41,11 +41,8 @@ func TestLLMMergeDraft(t *testing.T) {
 	s, calls := llmFixture(t, `{"is_error":false,"structured_output":{"title":"Менеджер пакетов",`+
 		`"description":"Чем ставить пакеты","body":"Только yarn 4.","contradictions":[`+
 		`{"records":[1,2],"summary":"разные версии"}]}}`, nil)
-	groups, err := similarGroups(ctx, s.lib, SimilarQuery{})
-	if err != nil || len(groups) == 0 {
-		t.Fatalf("группы: %v", err)
-	}
-	ids := []string{groups[0].Items[0].ID, groups[0].Items[1].ID}
+	recs := fixtureItems(t, s)
+	ids := []string{recs[0].ID, recs[1].ID}
 
 	d, err := s.MergeDraft(ctx, ids, model.AgentClaude)
 	if err != nil {
@@ -55,7 +52,7 @@ func TestLLMMergeDraft(t *testing.T) {
 		d.Contradictions[0].ItemIDs[0] != ids[0] || d.Contradictions[0].ItemIDs[1] != ids[1] {
 		t.Errorf("черновик %+v", d)
 	}
-	if len(*calls) != 1 || !strings.Contains((*calls)[0].Stdin, groups[0].Items[1].Title) {
+	if len(*calls) != 1 || !strings.Contains((*calls)[0].Stdin, recs[1].Title) {
 		t.Errorf("записи группы не попали в промпт")
 	}
 
@@ -70,8 +67,8 @@ func TestLLMMergeDraft(t *testing.T) {
 func TestLLMErrors(t *testing.T) {
 	ctx := context.Background()
 	s, _ := llmFixture(t, "", errors.New("claude: exit status 1: Not logged in"))
-	groups, _ := similarGroups(ctx, s.lib, SimilarQuery{})
-	ids := []string{groups[0].Items[0].ID, groups[0].Items[1].ID}
+	recs := fixtureItems(t, s)
+	ids := []string{recs[0].ID, recs[1].ID}
 	_, err := s.MergeDraft(ctx, ids, model.AgentClaude)
 	var ae *Error
 	if !errors.As(err, &ae) || ae.Code != llm.ErrFailed || !strings.Contains(ae.Params["detail"], "Not logged in") {
@@ -83,24 +80,43 @@ func TestLLMContradictions(t *testing.T) {
 	ctx := context.Background()
 	s, calls := llmFixture(t, `{"is_error":false,"structured_output":{"contradictions":[`+
 		`{"a":1,"b":2,"summary":"разные ветки"}]}}`, nil)
-	rep, err := s.Contradictions(ctx, SimilarQuery{}, model.AgentClaude)
+	recs := fixtureItems(t, s)
+	got, err := s.Contradictions(ctx, []string{recs[0].ID, recs[1].ID}, model.AgentClaude)
 	if err != nil {
 		t.Fatal(err)
 	}
-	groups, _ := similarGroups(ctx, s.lib, SimilarQuery{})
-	if rep.Groups != len(groups) || rep.Checked != len(groups) || len(*calls) != 1 {
-		t.Fatalf("отчёт %+v, вызовов %d", rep, len(*calls))
+	// Уходят только отмеченные записи.
+	if len(*calls) != 1 || strings.Count((*calls)[0].Stdin, "<record ") != 2 {
+		t.Fatalf("вызовов %d", len(*calls))
 	}
-	if len(rep.Contradictions) != 1 || len(rep.Contradictions[0].Items) != 2 ||
-		rep.Contradictions[0].Items[0].ID != groups[0].Items[0].ID || rep.Contradictions[0].Items[1].Body == "" {
-		t.Errorf("противоречия %+v", rep.Contradictions)
+	if len(got) != 1 || len(got[0].Items) != 2 || got[0].Items[0].ID != recs[0].ID || got[0].Items[1].Body == "" {
+		t.Errorf("противоречия %+v", got)
 	}
 
-	// Без групп CLI не запускается.
-	rep, err = s.Contradictions(ctx, SimilarQuery{MinScore: 0.99}, model.AgentClaude)
-	if err != nil || rep.Groups != 0 || rep.Contradictions == nil || len(*calls) != 1 {
-		t.Errorf("пусто: %+v %v, вызовов %d", rep, err, len(*calls))
+	// Одна запись — CLI не запускается.
+	if _, err := s.Contradictions(ctx, []string{recs[0].ID}, model.AgentClaude); code(err) != "merge.too-few" ||
+		len(*calls) != 1 {
+		t.Errorf("одна запись: %v, вызовов %d", err, len(*calls))
 	}
+}
+
+// fixtureItems — факты Claude из фикстур: у них есть тело и заголовок.
+func fixtureItems(t *testing.T, s *LLMService) []model.Item {
+	t.Helper()
+	all, err := s.lib.All(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []model.Item
+	for _, it := range all {
+		if it.Kind == model.KindClaudeFact && it.Body != "" {
+			out = append(out, it)
+		}
+	}
+	if len(out) < 2 {
+		t.Fatalf("в фикстурах меньше двух фактов: %d", len(out))
+	}
+	return out
 }
 
 func code(err error) string {

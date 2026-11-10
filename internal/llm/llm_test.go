@@ -207,7 +207,7 @@ func TestMergeTooLarge(t *testing.T) {
 	big[0].Body = strings.Repeat("я", MaxPromptRunes)
 	_, err := c.Merge(context.Background(), model.AgentClaude, big)
 	var le *Error
-	if !errors.As(err, &le) || le.Code != ErrTooLarge || len(*calls) != 0 {
+	if !errors.As(err, &le) || le.Code != ErrTooLarge || le.Params["size"] == "" || len(*calls) != 0 {
 		t.Fatalf("ошибка %v, вызовов %d", err, len(*calls))
 	}
 }
@@ -230,38 +230,29 @@ func TestNotFound(t *testing.T) {
 }
 
 func TestContradictions(t *testing.T) {
-	groups := [][]model.Item{items()[:2], {items()[2], {ID: "d", Agent: model.AgentClaude, Title: "Ветка", Body: "Базовая ветка — develop."}}}
+	recs := append(items(), model.Item{ID: "d", Agent: model.AgentClaude, Title: "Ветка", Body: "Базовая ветка — develop."})
 	c, calls := client(t, func(Cmd) (string, error) {
-		// Номера сквозные: 1–2 — первая группа, 3–4 — вторая. Повтор пары
-		// в обратном порядке и номер вне списка отбрасываются.
+		// Повтор пары в обратном порядке и номер вне списка отбрасываются.
 		return claudeResult(`{"contradictions":[{"a":3,"b":4,"summary":"main или develop"},` +
 			`{"a":4,"b":3,"summary":"повтор"},{"a":1,"b":7,"summary":"нет такой"}]}`), nil
 	})
-	got, checked, err := c.Contradictions(context.Background(), model.AgentClaude, groups)
+	got, err := c.Contradictions(context.Background(), model.AgentClaude, recs)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if checked != 2 || len(*calls) != 1 {
-		t.Fatalf("проверено %d, вызовов %d", checked, len(*calls))
+	if len(*calls) != 1 || strings.Count((*calls)[0].cmd.Stdin, "<record ") != 4 {
+		t.Fatalf("вызовов %d", len(*calls))
 	}
 	if len(got) != 1 || !slices.Equal(got[0].ItemIDs, []string{"c", "d"}) || got[0].Summary != "main или develop" {
 		t.Errorf("противоречия %+v", got)
 	}
-	if !strings.Contains((*calls)[0].cmd.Stdin, `<group n="2">`) {
-		t.Errorf("нет второй группы в промпте")
-	}
 
-	// Пустой список групп — без вызова.
-	got, checked, err = c.Contradictions(context.Background(), model.AgentClaude, nil)
-	if err != nil || checked != 0 || len(got) != 0 || len(*calls) != 1 {
-		t.Errorf("пустые группы: %v %d %v", got, checked, err)
-	}
-
-	// Вторая группа не помещается — проверяется только первая.
-	groups[1][1].Body = strings.Repeat("я", MaxPromptRunes)
-	_, checked, err = c.Contradictions(context.Background(), model.AgentClaude, groups)
-	if err != nil || checked != 1 {
-		t.Errorf("усечение: проверено %d, %v", checked, err)
+	// Не помещается — без вызова, с размером в ошибке.
+	recs[3].Body = strings.Repeat("я", MaxPromptRunes)
+	_, err = c.Contradictions(context.Background(), model.AgentClaude, recs)
+	var le *Error
+	if !errors.As(err, &le) || le.Code != ErrTooLarge || le.Params["size"] == "" || len(*calls) != 1 {
+		t.Errorf("слишком большой запрос: %v, вызовов %d", err, len(*calls))
 	}
 }
 

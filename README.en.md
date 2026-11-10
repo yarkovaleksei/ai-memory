@@ -48,7 +48,7 @@ A directory listed twice, including through a symlink, is read once. Settings ar
 
 1. **Browse (MVP).** Memory of both agents by project, filters, full-text search. Read-only.
 2. **Edit.** Create, change and delete with a diff preview, backup and undo.
-3. **Across agents.** Move facts between Claude and Codex, find duplicates and contradictions, merge them (optionally with an LLM through `claude -p` / `codex exec`).
+3. **Across agents.** Move facts between Claude and Codex; merge the entries you select and look for contradictions among them (the draft and the check use an LLM through `claude -p` / `codex exec`).
 4. **Instructions and skills.** `CLAUDE.md`, `AGENTS.md` and skills next to memory; move rules and skills between agents.
 5. **MCP bridge.** An agent can search the other agent's memory while it works.
 6. **Packaging.** Installers for Linux, macOS and Windows.

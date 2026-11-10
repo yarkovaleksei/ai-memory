@@ -20,6 +20,7 @@ import { call } from "../api/errors";
 import { CodeEditor } from "./CodeEditor";
 import { FactForm } from "./FactEditor";
 import { ConsolidationAlert } from "./NoteEditor";
+import { useWritableAgents, type WritableAgents } from "./agents";
 import { useRunPlan } from "./plans";
 
 type Target = "claude" | "codex";
@@ -72,12 +73,18 @@ export const factName = (title: string) =>
 
 const isFact = (it: Item) => it.kind === "claude-fact" && it.write === "direct";
 
+// transferTargets — куда можно перенести запись: факт Claude — в Codex и в
+// другой проект или профиль Claude, запись Codex — только в Claude. Агент без
+// хранилища для записи в список не попадает.
+export const transferTargets = (item: Pick<Item, "agent">, agents: WritableAgents): Target[] =>
+  (item.agent === "claude" ? (["codex", "claude"] as const) : (["claude"] as const)).filter((t) => agents[t]);
+
 // TransferDialog — перенос или копия записи в другой агент, проект или профиль.
 // Копия оставляет источник, перенос убирает его: факт Claude удаляется, для
 // записи Codex пишется заметка «Забыть». Всё одним планом с diff (ADR-014).
 export const TransferDialog = ({ item, onClose }: { item: Item; onClose: () => void }) => {
   const translate = useTranslate();
-  const targets: Target[] = item.agent === "claude" ? ["codex", "claude"] : ["claude"];
+  const targets = transferTargets(item, useWritableAgents());
   const [target, setTarget] = useState<Target>(targets[0] ?? "claude");
   const canMove = isFact(item) || (item.agent === "codex" && item.write !== "none");
   const [move, setMove] = useState(false);
@@ -91,7 +98,6 @@ export const TransferDialog = ({ item, onClose }: { item: Item; onClose: () => v
     <Stack spacing={1.5}>
       <Stack direction="row" spacing={2} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
         <ToggleButtonGroup
-          size="small"
           exclusive
           value={target}
           onChange={(_, v: Target | null) => v && setTarget(v)}

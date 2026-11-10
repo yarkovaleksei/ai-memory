@@ -49,6 +49,23 @@ describe("главный экран", () => {
     );
   });
 
+  it("поиск по проектам сужает дерево, число записей — словом", async () => {
+    render(<App />);
+    expect(await screen.findByText("2 записи")).toBeInTheDocument();
+    expect(screen.getByText("Выберите запись")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Найти проект" }), { target: { value: "scratch" } });
+    // Совпал временный проект: группа раскрывается, остальные проекты скрыты.
+    expect(await screen.findByText("scratch-42")).toBeInTheDocument();
+    expect(screen.queryByText("demo")).not.toBeInTheDocument();
+    expect(screen.queryByText("Глобальная память")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Найти проект" }), {
+      target: { value: "нет-такого" },
+    });
+    expect(await screen.findByText("Проекты не найдены")).toBeInTheDocument();
+  });
+
   it("поиск подсвечивает совпадение в сниппете", async () => {
     render(<App />);
     await screen.findByText("Пакеты только через yarn");

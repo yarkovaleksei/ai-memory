@@ -16,9 +16,6 @@ import * as library$0 from "../library/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as model$0 from "../model/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as similar$0 from "../similar/models.js";
 
 /**
  * AppInfo — сведения о приложении для экрана «О программе» и диагностики.
@@ -56,16 +53,6 @@ export interface CodexStatus {
 export interface Contradiction {
     "summary": string;
     "items": model$0.Item[] | null;
-}
-
-/**
- * ContradictionReport — итог проверки. Checked < Groups — не все группы
- * поместились в один запрос: стоит сузить выбор (проект, порог).
- */
-export interface ContradictionReport {
-    "groups": number;
-    "checked": number;
-    "contradictions": Contradiction[] | null;
 }
 
 /**
@@ -245,29 +232,6 @@ export interface SettingsView {
     "lockedClaudeProfiles": boolean;
     "lockedCodexHome": boolean;
     "configFile": string;
-}
-
-/**
- * SimilarGroup — группа кандидатов в дубли с записями целиком: интерфейс
- * сравнивает их рядом без дополнительных запросов.
- */
-export interface SimilarGroup {
-    "score": number;
-    "pairs": similar$0.Pair[] | null;
-    "items": model$0.Item[] | null;
-}
-
-/**
- * SimilarQuery — фильтры экрана «Похожие».
- */
-export interface SimilarQuery {
-    "projectId": string;
-    "crossAgent": boolean;
-
-    /**
-     * 0 — порог по умолчанию
-     */
-    "minScore": number;
 }
 
 /**

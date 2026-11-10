@@ -225,6 +225,9 @@ func scanMemoryDir(src model.Source, memDir string, ref model.ProjectRef) ([]mod
 		if indexItem != nil {
 			if _, ok := byFile[base]; !ok {
 				facts[i].Warnings = append(facts[i].Warnings, model.NewWarning("claude.index.not-listed"))
+				// И на самом индексе: по его предупреждениям интерфейс решает,
+				// есть ли что исправлять (то же, что чинит PlanFixIndex).
+				indexItem.Warnings = append(indexItem.Warnings, model.NewWarning("claude.index.unlisted", "file", base))
 			}
 		}
 	}

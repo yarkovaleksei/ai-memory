@@ -16,9 +16,16 @@ describe("экран «Настройки»", () => {
     render(<App />);
     expect(await screen.findByText("~/.claude-personal")).toBeInTheDocument();
     expect(screen.getByText("/fx/home/.claude")).toBeInTheDocument();
-    expect(screen.getByText(/сейчас v2: из config\.toml Codex/)).toBeInTheDocument();
+    expect(screen.getByText(/сейчас v2: из/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Выбрать каталог…" }));
+    // Выбор каталога вписывает путь в поле, «Добавить» добавляет профиль.
+    fireEvent.click(screen.getAllByRole("button", { name: "Выбрать каталог" })[0]!);
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "Путь к профилю (можно с ~)" })).toHaveValue(
+        "/fx/home/.claude-work",
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
     expect(await screen.findByText("/fx/home/.claude-work")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Убрать ~/.claude-personal" }));
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));

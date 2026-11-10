@@ -100,14 +100,3 @@ func TestLibraryService(t *testing.T) {
 		t.Errorf("события: %v", rec.events)
 	}
 }
-
-func TestSimilar(t *testing.T) {
-	s, _ := fixtureService(t)
-	groups, err := s.Similar(context.Background(), SimilarQuery{})
-	if err != nil || len(groups) != 2 || len(groups[0].Items) != 3 || groups[0].Items[0].Body == "" {
-		t.Fatalf("Similar: %+v %v", groups, err)
-	}
-	if g, _ := s.Similar(context.Background(), SimilarQuery{MinScore: 0.99}); g == nil || len(g) != 0 {
-		t.Errorf("высокий порог: пустой список, а не null: %+v", g)
-	}
-}

@@ -255,3 +255,47 @@ func TestWatchPicksUpNewFact(t *testing.T) {
 		t.Error("Watch не завершился после отмены контекста")
 	}
 }
+
+// ai-memory работает с одним агентом или без обоих: отсутствующие каталоги
+// Claude и Codex — пустая память, а не ошибка.
+func TestRebuildWithoutAgents(t *testing.T) {
+	home := t.TempDir()
+	only := func(dir string) string { return filepath.Join(home, dir) }
+	if err := os.CopyFS(only(".claude"), os.DirFS(filepath.Join(copyFixtures(t), ".claude"))); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name    string
+		claude  []string
+		codex   string
+		sources int
+	}{
+		{"нет ни Claude, ни Codex", []string{only(".claude-нет")}, only(".codex-нет"), 0},
+		{"только Claude", []string{only(".claude")}, only(".codex-нет"), 1},
+		{"только Codex", []string{only(".claude-нет")}, filepath.Join(copyFixtures(t), ".codex"), 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lib := openLibrary(t, config.Config{
+				DataDir:        filepath.ToSlash(t.TempDir()),
+				ClaudeProfiles: toSlash(tt.claude),
+				CodexHome:      filepath.ToSlash(tt.codex),
+			})
+			st, err := lib.Rebuild(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if st.Sources != tt.sources {
+				t.Errorf("sources = %d, want %d", st.Sources, tt.sources)
+			}
+		})
+	}
+}
+
+func toSlash(paths []string) []string {
+	out := make([]string, len(paths))
+	for i, p := range paths {
+		out[i] = filepath.ToSlash(p)
+	}
+	return out
+}

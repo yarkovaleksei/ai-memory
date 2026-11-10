@@ -37,16 +37,21 @@ tasks:
   dev:
     summary: Окно в режиме разработки на фикстурах; REAL=true — на настоящей памяти
     vars:
-      FX: "{{.ROOT_DIR}}/fixtures/home"
+      FX: "{{.ROOT_DIR}}/.task/dev-home"
       LIST_SEP: '{{if eq OS "windows"}};{{else}}:{{end}}'
-    # AGENTS.md: разработка по умолчанию идёт на фикстурах. Пустые значения при REAL=true
-    # означают «переменная не задана», и приложение ищет память по обычным путям.
+    # AGENTS.md: разработка по умолчанию идёт на фикстурах. Окно пишет в память
+    # (правки, «Исправить индекс», объединение), поэтому работает на свежей копии
+    # fixtures/home в .task/dev-home, а не на самих фикстурах: иначе правки из окна
+    # ломают тесты. Бэкапы и индекс тоже начинаются заново — пути в них от копии.
+    # Пустые значения при REAL=true означают «переменная не задана», и приложение
+    # ищет память по обычным путям.
     env:
       AI_MEMORY_CLAUDE_DIRS: '{{if ne .REAL "true"}}{{.FX}}/.claude{{.LIST_SEP}}{{.FX}}/.claude-work{{end}}'
       AI_MEMORY_CODEX_HOME: '{{if ne .REAL "true"}}{{.FX}}/.codex{{end}}'
       AI_MEMORY_DATA_DIR: '{{if ne .REAL "true"}}{{.ROOT_DIR}}/.task/ai-memory-data{{end}}'
       AI_MEMORY_CONFIG_DIR: '{{if ne .REAL "true"}}{{.ROOT_DIR}}/.task/ai-memory-config{{end}}'
     cmds:
+      - '{{if ne .REAL "true"}}rm -rf .task/dev-home .task/ai-memory-data && mkdir -p .task && cp -R fixtures/home .task/dev-home{{else}}true{{end}}'
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
 
   bindings:

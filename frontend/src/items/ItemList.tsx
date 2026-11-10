@@ -1,5 +1,6 @@
 import RefreshIcon from "@mui/icons-material/Refresh";
-import { Box, IconButton, Paper, Stack, Tooltip, Typography } from "@mui/material";
+import SearchOffIcon from "@mui/icons-material/SearchOff";
+import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import {
@@ -20,8 +21,9 @@ import {
   useTranslate,
 } from "react-admin";
 import type { ListItem } from "../api/bindings";
-import { BulkDeleteFacts, CreateMenu, isSelectableFact } from "../edit/ItemActions";
+import { BulkActions, CreateMenu, isSelectable } from "../edit/ItemActions";
 import { RELEVANCE, type AimDataProvider } from "../dataProvider";
+import { EmptyState } from "../layout/EmptyState";
 import { AgentBadge, TypeBadge } from "./badges";
 import { ItemPreview, PendingChip } from "./ItemPreview";
 import { ProjectTree } from "./ProjectTree";
@@ -35,7 +37,6 @@ const itemFilters = [
   <SelectInput
     key="agent"
     fullWidth={false}
-    sx={{ minWidth: 150 }}
     source="agent"
     alwaysOn
     choices={[
@@ -46,13 +47,14 @@ const itemFilters = [
   <SelectInput
     key="type"
     fullWidth={false}
-    sx={{ minWidth: 150 }}
     source="type"
     alwaysOn
     choices={["user", "feedback", "project", "reference"].map((t) => ({ id: t, name: `aim.types.${t}` }))}
   />,
-  <BooleanInput key="includeTemp" source="includeTemp" alwaysOn />,
-  <BooleanInput key="warningsOnly" source="warningsOnly" alwaysOn />,
+  // size="medium" возвращает переключателям штатный размер: FilterForm
+  // react-admin делает все фильтры маленькими, поля же и так small по теме.
+  <BooleanInput key="includeTemp" source="includeTemp" alwaysOn size="medium" />,
+  <BooleanInput key="warningsOnly" source="warningsOnly" alwaysOn size="medium" />,
 ];
 
 // Главный экран: дерево проектов | список записей | просмотр записи.
@@ -83,10 +85,19 @@ const ItemListView = () => {
       </Paper>
       <Paper variant="outlined" sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
         <Stack direction="row" sx={{ alignItems: "flex-start", px: 1 }}>
-          <Box sx={{ flex: 1, minWidth: 0, "& .RaFilterFormInput-body": { mr: 1 } }}>
+          {/* Поля фильтров — одной ширины; высоту и вид задаёт тема. */}
+          <Box
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              "& .RaFilterForm-filterFormInput": { mr: 1 },
+              "& .RaFilterForm-filterFormInput .MuiInputBase-root": { width: 200 },
+            }}
+          >
             <FilterForm filters={itemFilters} />
           </Box>
-          <Stack direction="row" sx={{ pt: 1.5 }}>
+          {/* Отступ сверху — как у полей фильтров (margin dense): кнопки на одной линии с ними. */}
+          <Stack direction="row" spacing={1} sx={{ mt: 1, flexShrink: 0 }}>
             <CreateMenu />
             <RebuildButton />
           </Stack>
@@ -105,27 +116,31 @@ const ItemListView = () => {
 
 const ItemTable = ({ selected, onSelect }: { selected: string | null; onSelect: (id: string) => void }) => {
   const translate = useTranslate();
-  const { total, isPending } = useListContext<Row>();
+  const { data, total, isPending } = useListContext<Row>();
+  // Отметки — для действий над несколькими записями. Нет на странице записей,
+  // которые можно отметить, — нет и колонки; у остальных строк отметка скрыта,
+  // а не серая.
+  const selectable = (data ?? []).some(isSelectable);
   if (!isPending && total === 0) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography>{translate("aim.list.empty")}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {translate("aim.list.emptyHint")}
-        </Typography>
-      </Box>
+      <EmptyState
+        icon={SearchOffIcon}
+        title={translate("aim.list.empty")}
+        hint={translate("aim.list.emptyHint")}
+      />
     );
   }
   return (
     <DataTable<Row>
-      bulkActionButtons={<BulkDeleteFacts />}
-      isRowSelectable={isSelectableFact}
+      bulkActionButtons={selectable ? <BulkActions /> : false}
+      isRowSelectable={isSelectable}
       rowClick={(id) => {
         onSelect(String(id));
         return false;
       }}
       rowSx={(record) => (record.id === selected ? { bgcolor: "action.selected" } : {})}
       size="small"
+      sx={{ "& .RaDataTable-checkbox.Mui-disabled": { visibility: "hidden" } }}
     >
       <DataTable.Col source="title" render={() => <TitleCell />} />
       <DataTable.Col source="agent" render={(r) => <AgentBadge agent={r.agent} />} />
@@ -176,14 +191,9 @@ const RebuildButton = () => {
     onError: (err) => notify(errorText(err), { type: "error" }),
   });
   const translate = useTranslate();
-  // Иконка, а не кнопка с подписью: в средней колонке подпись выталкивает фильтры в столбик.
   return (
-    <Tooltip title={translate("aim.list.rebuild")}>
-      <span>
-        <IconButton aria-label={translate("aim.list.rebuild")} onClick={() => mutate()} disabled={isPending}>
-          <RefreshIcon />
-        </IconButton>
-      </span>
-    </Tooltip>
+    <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => mutate()} disabled={isPending}>
+      {translate("aim.list.rebuild")}
+    </Button>
   );
 };

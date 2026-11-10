@@ -59,13 +59,6 @@ export function Rebuild(): $CancellablePromise<library$0.Stats> {
 }
 
 /**
- * Similar ищет кандидатов в дубли без LLM (internal/similar).
- */
-export function Similar(q: $models.SimilarQuery): $CancellablePromise<$models.SimilarGroup[] | null> {
-    return $Call.ByID(4199500304, q);
-}
-
-/**
  * Sources возвращает хранилища памяти.
  */
 export function Sources(): $CancellablePromise<model$0.Source[] | null> {

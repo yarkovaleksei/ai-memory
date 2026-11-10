@@ -1,3 +1,4 @@
+import ArticleIcon from "@mui/icons-material/ArticleOutlined";
 import { Alert, Box, Chip, Divider, Link, Stack, Tab, Tabs, Tooltip, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -8,6 +9,7 @@ import { ItemActions } from "../edit/ItemActions";
 import { useConsolidationHint } from "../edit/plans";
 import { AgentBadge, TypeBadge } from "./badges";
 import { Markdown } from "./Markdown";
+import { EmptyState } from "../layout/EmptyState";
 import { useErrorText, useWarningText } from "./text";
 
 type Rec<T> = T & { id: string };
@@ -33,7 +35,13 @@ export const ItemPreview = ({ id, onOpenItem }: ItemPreviewProps) => {
   );
 
   if (!id) {
-    return <Placeholder text={translate("aim.preview.empty")} />;
+    return (
+      <EmptyState
+        icon={ArticleIcon}
+        title={translate("aim.preview.empty")}
+        hint={translate("aim.preview.emptyHint")}
+      />
+    );
   }
   if (error) {
     return (

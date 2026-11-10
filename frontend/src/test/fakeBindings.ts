@@ -139,6 +139,9 @@ export const sources: Source[] = [
   },
 ] as unknown as Source[];
 
+// Sources — vi.fn: тест «нет агента» подменяет список хранилищ.
+export const listSources = vi.fn((): Promise<Source[]> => Promise.resolve(sources));
+
 const temp = new Set(projects.filter((p) => p.temp).map((p) => p.id));
 
 export const listItems = vi.fn((q: ItemQuery) => {
@@ -297,17 +300,13 @@ export const llmService = {
       contradictions: [{ itemIds: ids.slice(0, 2), summary: "Разные версии yarn" }],
     }),
   ),
-  Contradictions: vi.fn(() =>
-    Promise.resolve({
-      groups: 2,
-      checked: 1,
-      contradictions: [
-        {
-          summary: "Разные базовые ветки релиза",
-          items: items.filter((it) => it.id === "i-yarn" || it.id === "i-note"),
-        },
-      ],
-    }),
+  Contradictions: vi.fn((ids: string[]) =>
+    Promise.resolve([
+      {
+        summary: "Разные базовые ветки релиза",
+        items: items.filter((it) => ids.includes(it.id)).slice(0, 2),
+      },
+    ]),
   ),
 };
 
@@ -337,16 +336,7 @@ export const fakeBindings = () => ({
     },
     GetItems: (ids: string[]) => Promise.resolve(items.filter((i) => ids.includes(i.id))),
     Projects: () => Promise.resolve(projects),
-    Sources: () => Promise.resolve(sources),
-    Similar: vi.fn(() =>
-      Promise.resolve([
-        {
-          score: 0.471,
-          pairs: [{ a: "i-yarn", b: "i-note", score: 0.471 }],
-          items: items.filter((it) => it.id === "i-yarn" || it.id === "i-note"),
-        },
-      ]),
-    ),
+    Sources: listSources,
     Rebuild: () => Promise.resolve({ sources: 1, projects: 3, items: 3, builtAt: "", duration: "5ms" }),
   },
   IndexUpdated: "index:updated",

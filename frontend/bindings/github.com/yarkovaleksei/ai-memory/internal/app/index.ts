@@ -21,7 +21,6 @@ export type {
     ApplyResult,
     CodexStatus,
     Contradiction,
-    ContradictionReport,
     Draft,
     EditStatus,
     ItemPage,
@@ -30,7 +29,5 @@ export type {
     MergeRequest,
     NoteText,
     SettingsView,
-    SimilarGroup,
-    SimilarQuery,
     TransferLink
 } from "./models.js";

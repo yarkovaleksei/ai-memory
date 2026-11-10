@@ -5,6 +5,7 @@ import { useTranslate } from "react-admin";
 import { LLMService, type Agent } from "../api/bindings";
 import { call } from "../api/errors";
 import { useErrorText } from "../items/text";
+import { Rich } from "../layout/Rich";
 
 // Агенты, чьи CLI найдены в PATH. Набор не меняется, пока окно открыто.
 export const useLLMAgents = () =>
@@ -68,7 +69,11 @@ export const LLMActions = ({ label, busy, running, error, disabled, onRun, onSto
   const { data: agents } = useLLMAgents();
   const name = (a: Agent) => translate(`aim.llm.agents.${a}`, { _: a });
   if (agents && agents.length === 0) {
-    return <Typography color="text.secondary">{translate("aim.llm.noAgents")}</Typography>;
+    return (
+      <Typography color="text.secondary">
+        <Rich text={translate("aim.llm.noAgents")} />
+      </Typography>
+    );
   }
   return (
     <Stack spacing={1}>
@@ -77,14 +82,12 @@ export const LLMActions = ({ label, busy, running, error, disabled, onRun, onSto
           <CircularProgress size={20} />
           <Typography>{translate(busy, { agent: name(running) })}</Typography>
           <Box sx={{ flex: 1 }} />
-          <Button size="small" onClick={onStop}>
-            {translate("aim.llm.stop")}
-          </Button>
+          <Button onClick={onStop}>{translate("aim.llm.stop")}</Button>
         </Stack>
       ) : (
         <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
           {(agents ?? []).map((a) => (
-            <Button key={a} size="small" variant="outlined" disabled={disabled} onClick={() => onRun(a)}>
+            <Button key={a} variant="outlined" disabled={disabled} onClick={() => onRun(a)}>
               {translate(label, { agent: name(a) })}
             </Button>
           ))}

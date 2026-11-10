@@ -1,7 +1,14 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
-import { historyService, plansService, rejectCode } from "../test/fakeBindings";
+import {
+  historyService,
+  listSources,
+  llmService,
+  plansService,
+  rejectCode,
+  sources,
+} from "../test/fakeBindings";
 
 vi.mock("../api/bindings", async () => (await import("../test/fakeBindings")).fakeBindings());
 
@@ -61,7 +68,7 @@ describe("правка факта Claude", () => {
 
     fireEvent.click(planDialog.getByRole("button", { name: "Записать" }));
     await waitFor(() => expect(plansService.Apply).toHaveBeenCalledWith("plan-claude.fact.update"));
-    expect(await screen.findByText("Записано. Операцию можно откатить в истории")).toBeInTheDocument();
+    expect(await screen.findByText("Записано. Операцию можно откатить в истории.")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
@@ -81,7 +88,7 @@ describe("правка факта Claude", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Записать" }));
     expect(
       await screen.findByText(
-        "Файл /fx/a.md изменился с момента, как вы его открыли. Откройте запись заново",
+        "Файл /fx/a.md изменился с момента, как вы его открыли. Откройте запись заново.",
       ),
     ).toBeInTheDocument();
   });
@@ -93,11 +100,94 @@ describe("массовые действия", () => {
     await screen.findByText("Пакеты только через yarn");
     const row = screen.getByText("Пакеты только через yarn").closest("tr") as HTMLElement;
     fireEvent.click(within(row).getByRole("checkbox"));
-    fireEvent.click(await screen.findByRole("button", { name: "Удалить 1 факт" }));
+    const del = await screen.findByRole("button", { name: "Удалить 1 факт" });
+    await waitFor(() => expect(del).toBeEnabled());
+    fireEvent.click(del);
     await screen.findByRole("dialog", { name: "Удалить факты Claude: 1" });
     expect(plansService.DeleteFacts).toHaveBeenCalledWith(["i-yarn"]);
   });
+
+  it("объединяет отмеченные записи с черновиком от модели", async () => {
+    render(<App />);
+    await selectRows("Пакеты только через yarn", "Сборка демо");
+    // Удалить можно только факты Claude, а отмечена и заметка Codex.
+    expect(screen.getByRole("button", { name: "Удалить 2 факта" })).toBeDisabled();
+    const merge = screen.getByRole("button", { name: "Объединить" });
+    await waitFor(() => expect(merge).toBeEnabled());
+    fireEvent.click(merge);
+
+    const dialog = within(await screen.findByRole("dialog", { name: "Объединить 2 записи" }));
+    expect(dialog.getByLabelText("Имя")).toHaveValue("prefer-yarn");
+    fireEvent.click(await dialog.findByRole("button", { name: "Черновик от Claude" }));
+    await waitFor(() =>
+      expect(dialog.getByLabelText("Текст факта")).toHaveValue("Ставить пакеты только через yarn 4.\n"),
+    );
+    expect(llmService.MergeDraft).toHaveBeenCalledWith(["i-yarn", "i-note"], "claude");
+    expect(
+      dialog.getByText(/Разные версии yarn \(«Пакеты только через yarn», «Сборка демо»\)/),
+    ).toBeInTheDocument();
+
+    fireEvent.click(dialog.getByRole("button", { name: "Показать изменения" }));
+    await waitFor(() =>
+      expect(plansService.Merge).toHaveBeenCalledWith(
+        expect.objectContaining({
+          itemIds: ["i-yarn", "i-note"],
+          target: "claude",
+          forget: [expect.objectContaining({ itemId: "i-note", title: "Забыть: Сборка демо" })],
+        }),
+      ),
+    );
+  });
+
+  it("ошибка CLI показывается в диалоге объединения", async () => {
+    llmService.MergeDraft.mockImplementationOnce(() =>
+      Promise.reject(
+        Object.assign(new Error("x"), { cause: { code: "llm.not-found", params: { agent: "codex" } } }),
+      ),
+    );
+    render(<App />);
+    await selectRows("Пакеты только через yarn", "Сборка демо");
+    const merge = screen.getByRole("button", { name: "Объединить" });
+    await waitFor(() => expect(merge).toBeEnabled());
+    fireEvent.click(merge);
+    const dialog = within(await screen.findByRole("dialog", { name: "Объединить 2 записи" }));
+    fireEvent.click(await dialog.findByRole("button", { name: "Черновик от Codex" }));
+    expect(await dialog.findByText(/Не найдена команда codex в PATH/)).toBeInTheDocument();
+  });
+
+  it("ищет противоречия только среди отмеченных записей", async () => {
+    render(<App />);
+    await selectRows("Пакеты только через yarn", "Сборка демо");
+    const check = screen.getByRole("button", { name: "Найти противоречия" });
+    await waitFor(() => expect(check).toBeEnabled());
+    fireEvent.click(check);
+    const dialog = within(await screen.findByRole("dialog", { name: "Противоречия среди 2 записей" }));
+    fireEvent.click(await dialog.findByRole("button", { name: "Проверить через Codex" }));
+    expect(await dialog.findByText("Разные базовые ветки релиза")).toBeInTheDocument();
+    expect(llmService.Contradictions).toHaveBeenCalledWith(["i-yarn", "i-note"], "codex");
+    expect(dialog.getByRole("button", { name: "Объединить" })).toBeInTheDocument();
+  });
+
+  it("без CLI агентов кнопок модели нет", async () => {
+    llmService.Agents.mockImplementationOnce(() => Promise.resolve([]));
+    render(<App />);
+    await selectRows("Пакеты только через yarn", "Сборка демо");
+    const check = screen.getByRole("button", { name: "Найти противоречия" });
+    await waitFor(() => expect(check).toBeEnabled());
+    fireEvent.click(check);
+    const dialog = within(await screen.findByRole("dialog", { name: "Противоречия среди 2 записей" }));
+    expect(await dialog.findByText(/запросы к модели недоступны/)).toBeInTheDocument();
+    expect(dialog.queryByRole("button", { name: "Проверить через Claude" })).not.toBeInTheDocument();
+  });
 });
+
+// selectRows отмечает строки списка записей по заголовкам.
+const selectRows = async (...titles: string[]) => {
+  for (const title of titles) {
+    const row = (await screen.findByText(title)).closest("tr") as HTMLElement;
+    fireEvent.click(within(row).getByRole("checkbox"));
+  }
+};
 
 describe("записи Codex", () => {
   it("правятся только заметками и показывают статус консолидации", async () => {
@@ -151,7 +241,7 @@ describe("история", () => {
 describe("перенос между агентами", () => {
   it("факт Claude переносится в Codex заметкой с указанием источника", async () => {
     const pane = await openItem("Пакеты только через yarn");
-    fireEvent.click(pane.getByRole("button", { name: "Перенести…" }));
+    fireEvent.click(pane.getByRole("button", { name: "Перенести" }));
     const dialog = within(await screen.findByRole("dialog", { name: "Перенос «Пакеты только через yarn»" }));
     // Пара с прошлым переносом в Codex — предупреждение о повторе.
     expect(await dialog.findByText(/уже переносилась сюда: «Сборка демо»/)).toBeInTheDocument();
@@ -172,7 +262,7 @@ describe("перенос между агентами", () => {
 
   it("запись Codex переносится в Claude фактом и заметкой «Забыть»", async () => {
     const pane = await openItem("User preferences");
-    fireEvent.click(pane.getByRole("button", { name: "Перенести…" }));
+    fireEvent.click(pane.getByRole("button", { name: "Перенести" }));
     const dialog = within(await screen.findByRole("dialog", { name: "Перенос «User preferences»" }));
     expect(dialog.queryByRole("button", { name: "В Codex" })).not.toBeInTheDocument();
     expect(dialog.getByLabelText("Имя")).toHaveValue("user-preferences");
@@ -195,5 +285,42 @@ describe("перенос между агентами", () => {
     const pane = await openItem("Пакеты только через yarn");
     fireEvent.click(await pane.findByRole("button", { name: "Скопировано в Codex: «Сборка демо»" }));
     expect((await screen.findAllByRole("heading", { name: "Сборка демо" }))[0]).toBeInTheDocument();
+  });
+});
+
+describe("нет одного из агентов", () => {
+  it("без Codex нет действий, которые пишут в Codex", async () => {
+    listSources.mockImplementation(() => Promise.resolve(sources.filter((src) => src.agent === "claude")));
+    render(<App />);
+    fireEvent.click(await screen.findByText("Пакеты только через yarn"));
+    const preview = await screen.findByRole("heading", { name: "Пакеты только через yarn" });
+    const pane = within(preview.closest(".MuiPaper-root") as HTMLElement);
+    // Факт Claude можно перенести в другой проект Claude, но не в Codex.
+    fireEvent.click(pane.getByRole("button", { name: "Перенести" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByRole("button", { name: "В Claude Code" })).toBeInTheDocument();
+    expect(dialog.queryByRole("button", { name: "В Codex" })).not.toBeInTheDocument();
+    fireEvent.click(dialog.getByRole("button", { name: "Отмена" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Создать" }));
+    expect(await screen.findByRole("menuitem", { name: "Факт Claude" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Заметка Codex" })).not.toBeInTheDocument();
+    listSources.mockImplementation(() => Promise.resolve(sources));
+  });
+
+  it("без Claude запись Codex не переносится, создаётся только заметка", async () => {
+    listSources.mockImplementation(() => Promise.resolve(sources.filter((src) => src.agent === "codex")));
+    render(<App />);
+    fireEvent.click(await screen.findByText("Сборка демо"));
+    // Заголовок есть и в тексте заметки: первый — заголовок просмотра.
+    const preview = (await screen.findAllByRole("heading", { name: "Сборка демо" }))[0]!;
+    const pane = within(preview.closest(".MuiPaper-root") as HTMLElement);
+    await pane.findByRole("button", { name: "Забыть" });
+    expect(pane.queryByRole("button", { name: "Перенести" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Создать" }));
+    expect(await screen.findByRole("menuitem", { name: "Заметка Codex" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Факт Claude" })).not.toBeInTheDocument();
+    listSources.mockImplementation(() => Promise.resolve(sources));
   });
 });
