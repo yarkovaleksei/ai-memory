@@ -224,3 +224,85 @@ describe("перенос правила между инструкциями", ()
     expect(dialog.getByRole("combobox", { name: "Место" })).toHaveAttribute("aria-disabled", "true");
   });
 });
+
+describe("AGENTS.md основным", () => {
+  it("предлагает приём и переносит общие блоки CLAUDE.md в AGENTS.md", async () => {
+    const state = {
+      state: "both",
+      claudeFile: "/home/me/projects/demo/CLAUDE.md",
+      agentsFile: "/home/me/projects/demo/AGENTS.md",
+      claudeExists: true,
+      agentsExists: true,
+      claudeHash: "h-claude",
+      agentsHash: "h-agents",
+      import: "@AGENTS.md",
+      override: false,
+      blocks: [
+        {
+          index: 0,
+          level: 1,
+          heading: "Проект demo",
+          text: "# Проект demo",
+          imports: [] as string[],
+          intro: true,
+        },
+        {
+          index: 1,
+          level: 2,
+          heading: "Код",
+          text: "## Код\n\n- yarn",
+          imports: [] as string[],
+          intro: false,
+        },
+        {
+          index: 2,
+          level: 2,
+          heading: "Стиль",
+          text: "## Стиль\n\n@docs/style.md",
+          imports: ["docs/style.md"],
+          intro: false,
+        },
+        {
+          index: 3,
+          level: 2,
+          heading: "Только для Claude Code",
+          text: "## Только для Claude Code",
+          imports: [] as string[],
+          intro: false,
+        },
+      ],
+    };
+    plansService.UnifyDraft.mockImplementation(() => Promise.resolve(state));
+    try {
+      render(<App />);
+      const pane = await openPreview("AGENTS.md");
+      expect(await pane.findByText(/CLAUDE.md и AGENTS.md проекта живут порознь/)).toBeInTheDocument();
+      fireEvent.click(pane.getByRole("button", { name: "Сделать AGENTS.md основным" }));
+      const dialog = within(
+        await screen.findByRole("dialog", { name: "AGENTS.md — основной, CLAUDE.md импортирует его" }),
+      );
+      // Общее — отмечено; заголовок документа, раздел с импортом и раздел для Claude — нет.
+      expect(await dialog.findByLabelText("Код")).toBeChecked();
+      for (const name of ["Проект demo", "Стиль", "Только для Claude Code"]) {
+        expect(dialog.getByLabelText(name)).not.toBeChecked();
+      }
+      fireEvent.click(dialog.getByLabelText("Стиль"));
+      expect(dialog.getByText(/импорты docs\/style\.md/)).toBeInTheDocument();
+      fireEvent.click(dialog.getByRole("button", { name: "Показать изменения" }));
+      expect(
+        await screen.findByRole("dialog", { name: "AGENTS.md — основной в проекте demo" }),
+      ).toBeInTheDocument();
+      expect(plansService.Unify).toHaveBeenLastCalledWith(
+        "path:/home/me/projects/demo",
+        "h-claude",
+        "h-agents",
+        [1, 2],
+      );
+    } finally {
+      plansService.UnifyDraft.mockReset();
+      plansService.UnifyDraft.mockImplementation(() =>
+        Promise.resolve({ ...state, state: "done", blocks: [] }),
+      );
+    }
+  });
+});

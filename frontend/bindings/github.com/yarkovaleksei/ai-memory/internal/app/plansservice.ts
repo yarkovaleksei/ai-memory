@@ -12,6 +12,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as agentfiles$0 from "../adapter/agentfiles/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as claude$0 from "../adapter/claude/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -139,6 +142,21 @@ export function TransferToClaude(itemID: string, sourceID: string, projectID: st
  */
 export function TransferToCodex(itemID: string, title: string, body: string, move: boolean): $CancellablePromise<writer$0.Plan> {
     return $Call.ByID(2678693181, itemID, title, body, move);
+}
+
+/**
+ * Unify строит план приёма: блоки move из CLAUDE.md — в AGENTS.md, в
+ * CLAUDE.md — импорт.
+ */
+export function Unify(projectID: string, claudeHash: string, agentsHash: string, move: number[] | null): $CancellablePromise<writer$0.Plan> {
+    return $Call.ByID(1782350415, projectID, claudeHash, agentsHash, move);
+}
+
+/**
+ * UnifyDraft — состояние инструкций проекта для предложения.
+ */
+export function UnifyDraft(projectID: string): $CancellablePromise<agentfiles$0.UnifyState> {
+    return $Call.ByID(2451569882, projectID);
 }
 
 /**

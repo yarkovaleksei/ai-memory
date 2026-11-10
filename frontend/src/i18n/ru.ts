@@ -256,6 +256,12 @@ const ru: TranslationMessages = {
         "same-file": "Раздел уже в этом файле — выберите другой",
         "target-invalid": "Неизвестно, куда вставить раздел — выберите файл из списка",
       },
+      unify: {
+        already: "%{file} уже импортирует AGENTS.md",
+        nothing: "У проекта нет ни CLAUDE.md, ни AGENTS.md",
+        "nothing-to-move": "Отметьте хотя бы один блок: пустой AGENTS.md не нужен ни одному агенту",
+        "project-required": "Каталог проекта неизвестен или не существует",
+      },
       transfer: {
         "same-place": "Факт уже лежит в этом проекте и профиле — выберите другой или скопируйте",
         "same-agent": "Запись Codex переносится только в Claude Code",
@@ -293,6 +299,7 @@ const ru: TranslationMessages = {
       "skill.update": "Изменить навык «%{name}»",
       "instructions.section-copy": "Копия правила «%{heading}» из %{from} в %{to}",
       "instructions.section-move": "Перенос правила «%{heading}» из %{from} в %{to}",
+      "instructions.unify": "AGENTS.md — основной в проекте %{project}",
       revert: "Откат: %{op}",
     },
     opKinds: {
@@ -312,6 +319,7 @@ const ru: TranslationMessages = {
       "skill.update": "правка навыка",
       "instructions.section-copy": "копия правила",
       "instructions.section-move": "перенос правила",
+      "instructions.unify": "AGENTS.md основным",
       revert: "откат",
     },
     planWarnings: {
@@ -334,6 +342,26 @@ const ru: TranslationMessages = {
         "claude-imports-agents":
           "Новый %{file} начинается с @AGENTS.md: пока CLAUDE.md нет, Claude Code читает AGENTS.md сам, а с CLAUDE.md перестанет — импорт сохраняет эти правила.",
       },
+    },
+    unify: {
+      action: "Сделать AGENTS.md основным",
+      title: "AGENTS.md — основной, CLAUDE.md импортирует его",
+      hint: {
+        both: "CLAUDE.md и AGENTS.md проекта живут порознь. Общие правила можно держать в AGENTS.md — его читают оба агента, — а в CLAUDE.md оставить импорт @AGENTS.md.",
+        "claude-only":
+          "У проекта нет AGENTS.md: Codex не видит правил из CLAUDE.md. Общие правила можно перенести в AGENTS.md, а в CLAUDE.md оставить импорт.",
+        "agents-only":
+          "У проекта нет CLAUDE.md. Claude Code новых версий читает AGENTS.md и сам, но надёжнее CLAUDE.md с импортом @AGENTS.md.",
+      },
+      help: {
+        both: "Отмеченные блоки CLAUDE.md уйдут в конец AGENTS.md. В CLAUDE.md останется остальное и строка %{import}.",
+        "claude-only":
+          "Отмеченные блоки CLAUDE.md станут новым AGENTS.md. В CLAUDE.md останется остальное и строка %{import}.",
+        "agents-only": "Будет создан CLAUDE.md из одной строки %{import}.",
+      },
+      blocks: "Что перенести в AGENTS.md",
+      override: "Рядом лежит AGENTS.override.md: пока он есть, Codex читает его, а не AGENTS.md.",
+      empty: "Отметьте хотя бы один блок: пустой AGENTS.md не нужен ни одному агенту.",
     },
     section: {
       title: "Перенести правило из %{title}",

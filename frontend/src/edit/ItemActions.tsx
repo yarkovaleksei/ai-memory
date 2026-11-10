@@ -14,6 +14,7 @@ import { FileEditor } from "./FileEditor";
 import { MergeDialog } from "./MergeDialog";
 import { NoteEditor, type NoteTarget } from "./NoteEditor";
 import { SectionDialog } from "./SectionDialog";
+import { UnifyHint } from "./UnifyDialog";
 import { useWritableAgents } from "./agents";
 import { TransferDialog, transferTargets } from "./TransferDialog";
 import { useEditStatus, useRunPlan } from "./plans";
@@ -97,10 +98,12 @@ export const ItemActions = ({ item }: { item: Item }) => {
   if (item.kind !== "claude-index" && isMemory(item) && transferTargets(item, agents).length > 0) {
     add("transfer", "aim.actions.transfer", () => setTransfer(true));
   }
-  if (buttons.length === 0) return null;
+  const hint = <UnifyHint item={item} disabled={disabled} />;
+  if (buttons.length === 0) return hint;
 
   return (
     <>
+      {hint}
       <Gate reason={reason}>
         <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
           {buttons}

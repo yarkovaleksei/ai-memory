@@ -319,6 +319,29 @@ export const plansService = {
       },
     ]),
   ),
+  // По умолчанию CLAUDE.md проекта уже импортирует AGENTS.md: предложения нет.
+  UnifyDraft: vi.fn(() =>
+    Promise.resolve({
+      state: "done",
+      claudeFile: "/home/me/projects/demo/CLAUDE.md",
+      agentsFile: "/home/me/projects/demo/AGENTS.md",
+      claudeExists: true,
+      agentsExists: true,
+      claudeHash: "h-claude",
+      agentsHash: "h-agents",
+      import: "@AGENTS.md",
+      override: false,
+      blocks: [] as {
+        index: number;
+        level: number;
+        heading: string;
+        text: string;
+        imports: string[];
+        intro: boolean;
+      }[],
+    }),
+  ),
+  Unify: vi.fn(() => Promise.resolve(plan("instructions.unify", { project: "demo", moved: "1" }))),
   CopySection: vi.fn(() =>
     Promise.resolve(
       plan("instructions.section-copy", {
