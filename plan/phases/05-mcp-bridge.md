@@ -1,4 +1,4 @@
-# Фаза 4. MCP-мост
+# Фаза 5. MCP-мост
 
 **Статус:** не начата
 
@@ -6,7 +6,7 @@
 
 ## Задачи
 - [ ] `cmd/ai-memory-mcp`: stdio MCP-сервер на `github.com/modelcontextprotocol/go-sdk` поверх ядра из `internal/`. Без зависимости от Wails и GTK.
-- [ ] Инструменты только на чтение: `search_memory(query, project?, agent?)`, `get_memory(id)`, `list_projects()`.
+- [ ] Инструменты только на чтение: `search_memory(query, project?, agent?)`, `get_memory(id)`, `list_projects()`. Инструкции и навыки другого агента ([фаза 4](04-instructions-skills.md)) — тоже ищутся, с видом записи в выдаче.
 - [ ] По умолчанию агент видит память другого агента по текущему проекту; глобальная — по флагу.
 - [ ] Опционально и выключено по умолчанию: `propose_memory(...)` — создаёт черновик плана, который применяет человек в окне ai-memory. Агент сам ничего не пишет.
 - [ ] Инструкция по подключению: `claude mcp add …` и раздел `[mcp_servers]` в `~/.codex/config.toml`.
