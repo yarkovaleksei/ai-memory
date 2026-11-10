@@ -44,6 +44,17 @@ type Plan struct {
 	ID      string   `json:"id"`
 	Op      Op       `json:"op"`
 	Changes []Change `json:"changes"`
+	// Warnings — о чём предупредить перед записью: файл в чужом git-репозитории,
+	// общий навык (ADR-010). Writer их не проверяет, их показывает интерфейс.
+	Warnings []Warning `json:"warnings,omitempty"`
+}
+
+// Warning — предупреждение плана кодом с параметрами (ADR-008). Confirm —
+// записать можно только после отдельного подтверждения пользователя.
+type Warning struct {
+	Code    string            `json:"code"`
+	Params  map[string]string `json:"params,omitempty"`
+	Confirm bool              `json:"confirm,omitempty"`
 }
 
 // NewPlan даёт плану случайный идентификатор.
@@ -59,8 +70,10 @@ func NewPlan(op Op, changes ...Change) Plan {
 // состояния диска, а не от результата другого.
 func Combine(op Op, plans ...Plan) (Plan, error) {
 	var changes []Change
+	var warnings []Warning
 	seen := map[string]bool{}
 	for _, p := range plans {
+		warnings = append(warnings, p.Warnings...)
 		for _, c := range p.Changes {
 			key := pathKey(c.Path)
 			if seen[key] {
@@ -70,7 +83,9 @@ func Combine(op Op, plans ...Plan) (Plan, error) {
 			changes = append(changes, c)
 		}
 	}
-	return NewPlan(op, changes...), nil
+	out := NewPlan(op, changes...)
+	out.Warnings = warnings
+	return out, nil
 }
 
 // Error — отказ writer'а кодом с параметрами.
@@ -107,7 +122,7 @@ type Guard interface {
 
 // Writer применяет планы.
 type Writer struct {
-	Roots  []string // разрешённые корни: профили Claude и CODEX_HOME
+	Roots  []string // разрешённые корни: профили Claude, CODEX_HOME, ~/.agents, каталоги проектов, цели симлинков навыков
 	Backup *backup.Repo
 	Guards []Guard
 }

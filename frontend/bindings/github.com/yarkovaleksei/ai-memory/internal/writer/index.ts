@@ -5,5 +5,6 @@ export type {
     Change,
     Entry,
     Op,
-    Plan
+    Plan,
+    Warning
 } from "./models.js";

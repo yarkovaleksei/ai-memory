@@ -30,16 +30,27 @@ type editEnv struct {
 
 func newEditEnv(t *testing.T) editEnv {
 	t.Helper()
+	return newEditEnvWith(t, nil)
+}
+
+// newEditEnvWith — то же, но prepare может изменить копию фикстур до первой
+// пересборки индекса (симлинки, git-репозиторий проекта).
+func newEditEnvWith(t *testing.T, prepare func(home string)) editEnv {
+	t.Helper()
 	src, err := filepath.Abs(filepath.Join("..", "..", "fixtures", "home"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	home := filepath.Join(t.TempDir(), "home")
 	copyDir(t, src, home)
+	if prepare != nil {
+		prepare(home)
+	}
 	cfg := config.Config{
 		DataDir:        filepath.ToSlash(filepath.Join(t.TempDir(), "data")),
 		ClaudeProfiles: []string{filepath.ToSlash(filepath.Join(home, ".claude"))},
 		CodexHome:      filepath.ToSlash(filepath.Join(home, ".codex")),
+		AgentsDir:      filepath.ToSlash(filepath.Join(home, ".agents")),
 	}
 	lib, err := library.New(cfg, nil)
 	if err != nil {
@@ -106,6 +117,28 @@ func (e editEnv) find(t *testing.T, kind model.ItemKind, title string) model.Ite
 		}
 	}
 	t.Fatalf("нет записи %s %q", kind, title)
+	return model.Item{}
+}
+
+// searchKind — все записи вида, включая временные проекты.
+func (e editEnv) searchKind(t *testing.T, kind model.ItemKind) []index.Hit {
+	t.Helper()
+	page, err := e.lib.Search(context.Background(), index.Query{Kind: string(kind), IncludeTemp: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return page.Hits
+}
+
+// findIn ищет запись по виду и заголовку в файле под каталогом с именем dir.
+func (e editEnv) findIn(t *testing.T, kind model.ItemKind, title, dir string) model.Item {
+	t.Helper()
+	for _, h := range e.searchKind(t, kind) {
+		if h.Title == title && filepath.Base(filepath.Dir(h.File)) == dir {
+			return h.Item
+		}
+	}
+	t.Fatalf("нет записи %s %q в %s", kind, title, dir)
 	return model.Item{}
 }
 

@@ -1,11 +1,13 @@
 import {
   Alert,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   Stack,
   Typography,
 } from "@mui/material";
@@ -153,6 +155,11 @@ const PlanDialog = ({ plan, busy, onCancel, onApply }: PlanDialogProps) => {
   // Заметки Codex — единственное, что ai-memory пишет в Codex (ADR-002): по их
   // каталогу видно, что изменение вступит только после консолидации.
   const touchesCodex = changes.some((c) => /[\\/]ad_hoc[\\/]notes[\\/]/.test(c.path));
+  // Предупреждения плана (ADR-010): чужой git-репозиторий, общий навык. Те, что
+  // с confirm, нужно подтвердить отдельно — иначе «Записать» неактивна.
+  const warnings = plan.warnings ?? [];
+  const [confirmed, setConfirmed] = useState<Set<number>>(new Set());
+  const unconfirmed = warnings.some((w, i) => w.confirm && !confirmed.has(i));
   return (
     <Dialog open onClose={busy ? undefined : onCancel} maxWidth="lg" fullWidth aria-labelledby="plan-title">
       <DialogTitle id="plan-title">{opText(plan.op)}</DialogTitle>
@@ -162,6 +169,31 @@ const PlanDialog = ({ plan, busy, onCancel, onApply }: PlanDialogProps) => {
             {translate("aim.plan.intro", { smart_count: changes.length })}
           </Typography>
           {touchesCodex && <Alert severity="info">{hint}</Alert>}
+          {warnings.map((w, i) => (
+            <Alert key={`${w.code}-${i}`} severity="warning">
+              <Stack spacing={0.5}>
+                <span>{translate(`aim.planWarnings.${w.code}`, { ...w.params, _: w.code })}</span>
+                {w.confirm && (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={confirmed.has(i)}
+                        onChange={(e) =>
+                          setConfirmed((s) => {
+                            const next = new Set(s);
+                            if (e.target.checked) next.add(i);
+                            else next.delete(i);
+                            return next;
+                          })
+                        }
+                      />
+                    }
+                    label={translate("aim.plan.confirm")}
+                  />
+                )}
+              </Stack>
+            </Alert>
+          ))}
           {changes.map((c) => (
             <Stack key={c.path} spacing={0.5}>
               <Stack direction="row" spacing={1} sx={{ alignItems: "center", minWidth: 0 }}>
@@ -179,7 +211,7 @@ const PlanDialog = ({ plan, busy, onCancel, onApply }: PlanDialogProps) => {
         <Button onClick={onCancel} disabled={busy}>
           {translate("ra.action.cancel")}
         </Button>
-        <Button variant="contained" onClick={onApply} disabled={busy}>
+        <Button variant="contained" onClick={onApply} disabled={busy || unconfirmed}>
           {translate("aim.plan.apply")}
         </Button>
       </DialogActions>

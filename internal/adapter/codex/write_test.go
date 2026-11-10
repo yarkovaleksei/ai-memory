@@ -177,6 +177,11 @@ func TestGuardProtectsGeneratedFilesAndNotes(t *testing.T) {
 		{"заметка неактивного поколения", writer.Change{Path: filepath.Join(NotesDir(home, GenV1), "new.md"), AfterExists: true, After: "x"}, "codex.generated-readonly"},
 		{"удаление заметки", writer.Change{Path: note, BeforeExists: true, Before: read(note)}, "codex.note.delete-forbidden"},
 		{"config.toml Codex", writer.Change{Path: filepath.Join(home, "config.toml"), BeforeExists: true, Before: read(filepath.Join(home, "config.toml")), AfterExists: true, After: "x"}, "codex.generated-readonly"},
+		// Инструкции и навыки — не память (ADR-020), но системные навыки Codex
+		// перезаписывает сам, а удалять файлы ai-memory не умеет.
+		{"системный навык", writer.Change{Path: filepath.Join(home, "skills", ".system", "plan-helper", "SKILL.md"), BeforeExists: true, Before: read(filepath.Join(home, "skills", ".system", "plan-helper", "SKILL.md")), AfterExists: true, After: "x"}, "codex.generated-readonly"},
+		{"файл в корне skills", writer.Change{Path: filepath.Join(home, "skills", "x.md"), AfterExists: true, After: "x"}, "codex.generated-readonly"},
+		{"удаление AGENTS.md", writer.Change{Path: filepath.Join(home, "AGENTS.md"), BeforeExists: true, Before: read(filepath.Join(home, "AGENTS.md"))}, "codex.files.delete-forbidden"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -328,5 +333,34 @@ func makeJobsDB(t *testing.T, path, status string, lease, finished int64) {
 	if _, err := db.Exec(`INSERT INTO jobs (kind, job_key, status, lease_until, finished_at, retry_remaining)
 		VALUES ('memory_consolidate_global', 'global', ?, ?, ?, 3)`, status, leaseV, finV); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// AGENTS.md и пользовательские навыки в CODEX_HOME правятся, и консолидация
+// им не мешает: это не память, блокировка Codex не берётся.
+func TestGuardAllowsInstructionsAndSkills(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("проверяется flock; LockFileEx — на Windows в CI")
+	}
+	ctx := context.Background()
+	home := copyHome(t)
+	f, err := os.OpenFile(filepath.Join(home, GenV2.LockFile()), os.O_RDWR|os.O_CREATE, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{
+		filepath.Join(home, "AGENTS.md"),
+		filepath.Join(home, "skills", "lint-fix", "SKILL.md"),
+	} {
+		before, _ := os.ReadFile(path)
+		w := newWriter(t, home, GenV2)
+		change := writer.Change{Path: path, BeforeExists: true, Before: string(before), AfterExists: true, After: "новое\n"}
+		if _, err := w.Apply(ctx, writer.NewPlan(writer.Op{Code: "t"}, change)); err != nil {
+			t.Errorf("%s: %v", path, err)
+		}
 	}
 }

@@ -263,6 +263,9 @@ const ru: TranslationMessages = {
           "title-invalid": "Заголовок заметки — одна непустая строка",
           "body-empty": "Текст заметки пуст",
         },
+        files: {
+          "delete-forbidden": "%{path} удалить нельзя: ai-memory инструкции и навыки Codex только правит",
+        },
       },
     },
     ops: {
@@ -278,6 +281,8 @@ const ru: TranslationMessages = {
       "transfer.copy-to-codex": "Копия в Codex: заметка «%{title}»",
       "transfer.move-to-codex": "Перенос в Codex: заметка «%{title}»",
       merge: "Объединение записей (%{count}) в «%{title}»",
+      "instructions.update": "Изменить инструкции %{file}",
+      "skill.update": "Изменить навык «%{name}»",
       revert: "Откат: %{op}",
     },
     opKinds: {
@@ -293,7 +298,24 @@ const ru: TranslationMessages = {
       "transfer.copy-to-codex": "копия в Codex",
       "transfer.move-to-codex": "перенос в Codex",
       merge: "объединение",
+      "instructions.update": "правка инструкций",
+      "skill.update": "правка навыка",
       revert: "откат",
+    },
+    planWarnings: {
+      plan: {
+        "in-repo":
+          "Файл лежит в git-репозитории %{repo}: правка появится в его git status. Коммитить её — ваше решение, ai-memory в чужие репозитории не коммитит.",
+        "shared-skill":
+          "Каталог навыка %{dir} подключён в нескольких местах: правка изменит навык у всех агентов и профилей, которые на него ссылаются.",
+      },
+    },
+    file: {
+      titles: {
+        instructions: "Инструкции %{title}",
+        skill: "Навык «%{title}»",
+      },
+      content: "Исходник файла",
     },
     plan: {
       intro:
@@ -301,6 +323,7 @@ const ru: TranslationMessages = {
       apply: "Записать",
       preview: "Показать изменения",
       applied: "Записано. Операцию можно откатить в истории.",
+      confirm: "Понимаю, записать всё равно",
       created: "новый",
       deleted: "удаляется",
       changed: "изменён",

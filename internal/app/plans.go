@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/yarkovaleksei/ai-memory/internal/adapter/agentfiles"
 	"github.com/yarkovaleksei/ai-memory/internal/adapter/claude"
 	"github.com/yarkovaleksei/ai-memory/internal/adapter/codex"
 	"github.com/yarkovaleksei/ai-memory/internal/backup"
@@ -114,12 +115,38 @@ func (e *editor) writer(ctx context.Context) (*writer.Writer, error) {
 	if home != "" {
 		roots = append(roots, home)
 	}
+	roots = append(roots, e.fileRoots(ctx)...)
 	g, _ := e.codexAdapter().Active(ctx)
 	return &writer.Writer{
 		Roots:  roots,
 		Backup: e.repo,
 		Guards: []writer.Guard{codex.Guard{Home: home, Generation: g}},
 	}, nil
+}
+
+// fileRoots — корни инструкций и навыков вне профилей и CODEX_HOME (ADR-020):
+// ~/.agents, каталоги проектов и цели симлинков навыков. Всё — из
+// конфигурации и индекса, а не из интерфейса; откат получает те же корни.
+func (e *editor) fileRoots(ctx context.Context) []string {
+	var out []string
+	if dir := e.rt.Config().AgentsDir; dir != "" {
+		out = append(out, filepath.FromSlash(dir))
+	}
+	if projects, err := e.lib.Projects(ctx); err == nil {
+		for _, p := range projects {
+			if p.Path != "" {
+				out = append(out, p.Path)
+			}
+		}
+	}
+	if page, err := e.lib.Search(ctx, index.Query{Kind: string(model.KindSkill), IncludeTemp: true}); err == nil {
+		for _, h := range page.Hits {
+			if h.Target != "" {
+				out = append(out, h.Target)
+			}
+		}
+	}
+	return out
 }
 
 func (e *editor) item(ctx context.Context, id string) (model.Item, error) {
@@ -228,7 +255,9 @@ func (s *PlansService) Draft(ctx context.Context, itemID string) (Draft, error) 
 			out.Fact = &d.Fact
 		}
 		return out, nil
-	case it.Kind == model.KindCodexAdHocNote && it.Write == model.WriteDirect:
+	case it.Kind == model.KindCodexAdHocNote && it.Write == model.WriteDirect,
+		!it.Kind.Memory() && it.Write == model.WriteDirect:
+		// Заметка Codex, файл инструкций или SKILL.md — правится исходник целиком.
 		data, err := os.ReadFile(it.File)
 		if err != nil {
 			return Draft{}, fail("write.unreadable", "path", it.File, "error", err.Error())
@@ -312,7 +341,7 @@ func (s *PlansService) UpdateFact(ctx context.Context, itemID, baseHash string, 
 }
 
 // UpdateSource заменяет исходник записи целиком: факт Claude (так чинится
-// сломанный frontmatter) или нашу заметку Codex.
+// сломанный frontmatter), нашу заметку Codex, файл инструкций или SKILL.md.
 func (s *PlansService) UpdateSource(ctx context.Context, itemID, baseHash, content string) (writer.Plan, error) {
 	it, err := s.e.item(ctx, itemID)
 	if err != nil {
@@ -324,6 +353,8 @@ func (s *PlansService) UpdateSource(ctx context.Context, itemID, baseHash, conte
 		return s.e.keep(claude.PlanUpdateRaw(it.File, hash, content))
 	case it.Kind == model.KindCodexAdHocNote && it.Write == model.WriteDirect:
 		return s.e.keep(codex.PlanUpdateNote(it.File, hash, content))
+	case !it.Kind.Memory() && it.Write == model.WriteDirect:
+		return s.e.keep(agentfiles.PlanUpdate(it, hash, content))
 	}
 	return writer.Plan{}, fail("plan.readonly", "title", it.Title)
 }

@@ -10,6 +10,7 @@ import { LibraryService, PlansService, type Item } from "../api/bindings";
 import { call } from "../api/errors";
 import { ContradictionsDialog } from "./ContradictionsDialog";
 import { FactEditor, type FactTarget } from "./FactEditor";
+import { FileEditor } from "./FileEditor";
 import { MergeDialog } from "./MergeDialog";
 import { NoteEditor, type NoteTarget } from "./NoteEditor";
 import { useWritableAgents } from "./agents";
@@ -50,6 +51,7 @@ export const ItemActions = ({ item }: { item: Item }) => {
   const [fact, setFact] = useState<FactTarget | null>(null);
   const [note, setNote] = useState<NoteTarget | null>(null);
   const [transfer, setTransfer] = useState(false);
+  const [file, setFile] = useState(false);
   const agents = useWritableAgents();
 
   const indexIssue = (item.warnings ?? []).some((w) => w.code.startsWith("claude.index."));
@@ -72,6 +74,10 @@ export const ItemActions = ({ item }: { item: Item }) => {
   }
   // Только когда индексу есть что исправить: строки без файла или факты вне
   // индекса. Иначе кнопка вела бы к «Изменений нет».
+  // Инструкции и навыки правятся исходником целиком (ADR-020).
+  if (!isMemory(item) && item.write === "direct") {
+    add("editFile", "aim.actions.edit", () => setFile(true));
+  }
   if (item.agent === "claude" && indexIssue) {
     add("fix", "aim.actions.fixIndex", () => void runPlan(() => PlansService.FixIndex(item.id)));
   }
@@ -97,6 +103,7 @@ export const ItemActions = ({ item }: { item: Item }) => {
       {fact && <FactEditor target={fact} onClose={() => setFact(null)} />}
       {note && <NoteEditor target={note} onClose={() => setNote(null)} />}
       {transfer && <TransferDialog item={item} onClose={() => setTransfer(false)} />}
+      {file && <FileEditor item={item} onClose={() => setFile(false)} />}
     </>
   );
 };

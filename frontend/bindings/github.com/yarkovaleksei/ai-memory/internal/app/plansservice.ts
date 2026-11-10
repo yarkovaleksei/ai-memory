@@ -123,7 +123,7 @@ export function UpdateFact(itemID: string, baseHash: string, $in: claude$0.FactI
 
 /**
  * UpdateSource заменяет исходник записи целиком: факт Claude (так чинится
- * сломанный frontmatter) или нашу заметку Codex.
+ * сломанный frontmatter), нашу заметку Codex, файл инструкций или SKILL.md.
  */
 export function UpdateSource(itemID: string, baseHash: string, content: string): $CancellablePromise<writer$0.Plan> {
     return $Call.ByID(3249315840, itemID, baseHash, content);

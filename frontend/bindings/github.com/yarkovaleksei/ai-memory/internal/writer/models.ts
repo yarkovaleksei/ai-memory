@@ -45,4 +45,20 @@ export interface Plan {
     "id": string;
     "op": Op;
     "changes": Change[] | null;
+
+    /**
+     * Warnings — о чём предупредить перед записью: файл в чужом git-репозитории,
+     * общий навык (ADR-010). Writer их не проверяет, их показывает интерфейс.
+     */
+    "warnings"?: Warning[] | null;
+}
+
+/**
+ * Warning — предупреждение плана кодом с параметрами (ADR-008). Confirm —
+ * записать можно только после отдельного подтверждения пользователя.
+ */
+export interface Warning {
+    "code": string;
+    "params"?: { [_ in string]?: string } | null;
+    "confirm"?: boolean;
 }
