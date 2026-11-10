@@ -35,6 +35,7 @@ func TestLoad(t *testing.T) {
 				DataDir:        "/home/me/.local/share/ai-memory",
 				ClaudeProfiles: []string{"/home/me/.claude"},
 				CodexHome:      "/home/me/.codex",
+				AgentsDir:      "/home/me/.agents",
 			},
 		},
 		{
@@ -50,6 +51,7 @@ func TestLoad(t *testing.T) {
 				DataDir:        "/data/ai-memory",
 				ClaudeProfiles: []string{"/home/me/.claude", "/home/me/.claude-work"},
 				CodexHome:      "/opt/codex",
+				AgentsDir:      "/home/me/.agents",
 			},
 		},
 		{
@@ -60,6 +62,7 @@ func TestLoad(t *testing.T) {
 				DataDir:        "/home/me/.local/share/ai-memory",
 				ClaudeProfiles: []string{"/home/me/.claude"},
 				CodexHome:      "/home/me/.codex",
+				AgentsDir:      "/home/me/.agents",
 			},
 		},
 		{
@@ -71,12 +74,14 @@ func TestLoad(t *testing.T) {
 				"CLAUDE_CONFIG_DIR": "/ignored-too",
 				EnvConfigDir:        "/fx/cfg",
 				EnvDataDir:          "/fx/data",
+				EnvAgentsDir:        "/fx/home/.agents/",
 			}),
 			want: Config{
 				ConfigDir:      "/fx/cfg",
 				DataDir:        "/fx/data",
 				ClaudeProfiles: []string{"/fx/home/.claude", "/fx/home/.claude-work"},
 				CodexHome:      "/fx/home/.codex",
+				AgentsDir:      "/fx/home/.agents",
 			},
 		},
 		{
@@ -87,6 +92,7 @@ func TestLoad(t *testing.T) {
 				DataDir:        "/Users/me/Library/Application Support/ai-memory",
 				ClaudeProfiles: []string{"/Users/me/.claude"},
 				CodexHome:      "/Users/me/.codex",
+				AgentsDir:      "/Users/me/.agents",
 			},
 		},
 		{
@@ -97,6 +103,7 @@ func TestLoad(t *testing.T) {
 				DataDir:        "/Users/me/Library/Application Support/ai-memory",
 				ClaudeProfiles: []string{"/Users/me/.claude"},
 				CodexHome:      "/Users/me/.codex",
+				AgentsDir:      "/Users/me/.agents",
 			},
 		},
 		{
@@ -110,6 +117,7 @@ func TestLoad(t *testing.T) {
 				DataDir:        `C:\Users\me\AppData\Local\ai-memory`,
 				ClaudeProfiles: []string{`C:\Users\me\.claude`},
 				CodexHome:      `C:\Users\me\.codex`,
+				AgentsDir:      `C:\Users\me\.agents`,
 			},
 		},
 		{
@@ -123,6 +131,7 @@ func TestLoad(t *testing.T) {
 				DataDir:        `C:\Users\me\AppData\Local\ai-memory`,
 				ClaudeProfiles: []string{`D:\work\.claude`, `C:\Users\me\.claude`},
 				CodexHome:      `C:\Users\me\codex-home`,
+				AgentsDir:      `C:\Users\me\.agents`,
 			},
 		},
 	}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/yarkovaleksei/ai-memory/internal/adapter"
+	"github.com/yarkovaleksei/ai-memory/internal/adapter/agentfiles"
 	"github.com/yarkovaleksei/ai-memory/internal/adapter/claude"
 	"github.com/yarkovaleksei/ai-memory/internal/adapter/codex"
 	"github.com/yarkovaleksei/ai-memory/internal/catalog"
@@ -34,8 +35,11 @@ type Stats struct {
 // Library — точка входа ядра для чтения памяти.
 type Library struct {
 	adapters []adapter.Adapter
-	ix       *index.Index
-	log      *slog.Logger
+	// files читает инструкции и навыки; пути проектов ему проставляет Rebuild
+	// по прочитанной памяти (ADR-019).
+	files agentfiles.Adapter
+	ix    *index.Index
+	log   *slog.Logger
 
 	rebuildMu sync.Mutex // пересборки не пересекаются
 	mu        sync.Mutex
@@ -56,7 +60,11 @@ func New(cfg config.Config, log *slog.Logger) (*Library, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Library{adapters: adaptersFor(cfg), ix: ix, log: log}, nil
+	return &Library{adapters: adaptersFor(cfg), files: filesFor(cfg), ix: ix, log: log}, nil
+}
+
+func filesFor(cfg config.Config) agentfiles.Adapter {
+	return agentfiles.Adapter{ClaudeProfiles: cfg.ClaudeProfiles, CodexHome: cfg.CodexHome, AgentsDir: cfg.AgentsDir}
 }
 
 func adaptersFor(cfg config.Config) []adapter.Adapter {
@@ -72,6 +80,7 @@ func (l *Library) Configure(cfg config.Config) {
 	l.rebuildMu.Lock()
 	defer l.rebuildMu.Unlock()
 	l.adapters = adaptersFor(cfg)
+	l.files = filesFor(cfg)
 }
 
 // Close закрывает индекс.
@@ -90,11 +99,12 @@ func (l *Library) Rebuild(ctx context.Context) (Stats, error) {
 		items   []model.Item
 		watched []watchedSource
 	)
-	for _, ad := range l.adapters {
+	scan := func(ad adapter.Adapter) ([]model.Item, error) {
 		srcs, err := ad.Discover(ctx)
 		if err != nil {
-			return Stats{}, fmt.Errorf("library: поиск хранилищ: %w", err)
+			return nil, fmt.Errorf("library: поиск хранилищ: %w", err)
 		}
+		var out []model.Item
 		for _, src := range srcs {
 			got, err := ad.Scan(ctx, src)
 			if err != nil {
@@ -103,10 +113,29 @@ func (l *Library) Rebuild(ctx context.Context) (Stats, error) {
 				src.Warnings = append(src.Warnings, model.NewWarning("source.scan-failed", "error", err.Error()))
 			}
 			sources = append(sources, src)
-			items = append(items, got...)
+			out = append(out, got...)
 			watched = append(watched, watchedSource{ad: ad, src: src})
 		}
+		return out, nil
 	}
+	for _, ad := range l.adapters {
+		got, err := scan(ad)
+		if err != nil {
+			return Stats{}, err
+		}
+		items = append(items, got...)
+	}
+	// Проектные инструкции и навыки ищутся по путям проектов из памяти: других
+	// источников путей у ai-memory нет.
+	files := l.files
+	files.Projects = projectPaths(items)
+	got, err := scan(files)
+	if err != nil {
+		return Stats{}, err
+	}
+	agentfiles.MarkShared(got)
+	items = append(items, got...)
+
 	projects, items := catalog.Build(items)
 	if err := l.ix.Replace(ctx, sources, projects, items); err != nil {
 		return Stats{}, err
@@ -148,16 +177,49 @@ func (l *Library) Projects(ctx context.Context) ([]model.Project, error) { retur
 
 func (l *Library) Sources(ctx context.Context) ([]model.Source, error) { return l.ix.Sources(ctx) }
 
-func (l *Library) watchDirs() []string {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+// projectPaths — восстановленные пути проектов из памяти. Временные тоже:
+// их записи и так скрыты из списка, пока не включён показ временных.
+func projectPaths(items []model.Item) []string {
 	seen := map[string]bool{}
 	var out []string
+	for _, it := range items {
+		p := it.Project
+		if p.Global || p.Path == "" || seen[p.Path] {
+			continue
+		}
+		seen[p.Path] = true
+		out = append(out, p.Path)
+	}
+	return out
+}
+
+// watchDirs — наблюдаемые каталоги и фильтр имён для каждого: nil — важно
+// всё. Если каталог нужен двум адаптерам и одному важно всё, фильтра нет.
+func (l *Library) watchDirs() map[string]map[string]bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	out := map[string]map[string]bool{}
+	all := map[string]bool{}
 	for _, w := range l.watched {
+		var names map[string][]string
+		if nf, ok := w.ad.(adapter.NameFilter); ok {
+			names = nf.WatchNames(w.src)
+		}
 		for _, d := range w.ad.WatchDirs(w.src) {
-			if !seen[d] {
-				seen[d] = true
-				out = append(out, d)
+			list, filtered := names[d]
+			if !filtered {
+				all[d] = true
+				out[d] = nil
+				continue
+			}
+			if all[d] {
+				continue
+			}
+			if out[d] == nil {
+				out[d] = map[string]bool{}
+			}
+			for _, n := range list {
+				out[d][n] = true
 			}
 		}
 	}

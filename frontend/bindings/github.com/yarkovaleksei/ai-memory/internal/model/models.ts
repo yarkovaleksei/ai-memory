@@ -68,6 +68,30 @@ export interface Item {
      * Pending — агент ещё не учёл запись: заметка Codex ждёт консолидации.
      */
     "pending": boolean;
+
+    /**
+     * Поля инструкций и навыков (ADR-019).
+     * Role — откуда запись: для инструкций main | local | override | rule,
+     * для навыков user | project | system | synced | memory.
+     */
+    "role"?: string;
+
+    /**
+     * Target — куда ведёт симлинк каталога навыка, если навык подключён симлинком.
+     */
+    "target"?: string;
+
+    /**
+     * Shared — на тот же каталог навыка указывают и другие записи: правка
+     * затронет всех.
+     */
+    "shared"?: boolean;
+
+    /**
+     * Repo — корень git-репозитория проекта, в котором лежит файл: изменение
+     * появится в его git status.
+     */
+    "repo"?: string;
 }
 
 /**
@@ -108,6 +132,17 @@ export enum ItemKind {
      * raw_memories.md (v1)
      */
     KindCodexRaw = "codex-raw",
+
+    /**
+     * Фаза 4 (ADR-010, ADR-019): инструкции и навыки агентов.
+     * CLAUDE.md, AGENTS.md и правила: файл целиком
+     */
+    KindInstructions = "instructions",
+
+    /**
+     * каталог с SKILL.md
+     */
+    KindSkill = "skill",
 };
 
 /**
@@ -184,6 +219,12 @@ export interface Source {
      * проблемы на уровне источника
      */
     "warnings": Warning[] | null;
+
+    /**
+     * Files — хранилище инструкций и навыков, а не памяти (ADR-019): туда не
+     * пишутся факты и заметки.
+     */
+    "files"?: boolean;
 }
 
 /**

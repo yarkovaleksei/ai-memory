@@ -25,3 +25,13 @@ export const TypeBadge = ({ type }: { type: string }) => {
   if (!type) return null;
   return <Chip component="span" size="small" label={translate(`aim.types.${type}`, { _: type })} />;
 };
+
+// KindBadge — вид записи в колонке «Тип»: у инструкций и навыков типа памяти
+// нет, вместо него — вид (ADR-019).
+export const KindBadge = ({ kind, type }: { kind: string; type: string }) => {
+  const translate = useTranslate();
+  if (kind === "instructions" || kind === "skill") {
+    return <Chip component="span" size="small" variant="outlined" label={translate(`aim.kinds.${kind}`)} />;
+  }
+  return <TypeBadge type={type} />;
+};

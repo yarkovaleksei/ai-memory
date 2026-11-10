@@ -7,6 +7,7 @@ import { HistoryService, type Item, type Project, type Source } from "../api/bin
 import { call } from "../api/errors";
 import { ItemActions } from "../edit/ItemActions";
 import { useConsolidationHint } from "../edit/plans";
+import { useSourceLabel } from "./sourceLabel";
 import { AgentBadge, TypeBadge } from "./badges";
 import { Markdown } from "./Markdown";
 import { EmptyState } from "../layout/EmptyState";
@@ -114,6 +115,7 @@ const Placeholder = ({ text }: { text: string }) => (
 const ItemView = ({ item, onOpenItem }: { item: Rec<Item>; onOpenItem: (id: string) => void }) => {
   const translate = useTranslate();
   const warningText = useWarningText();
+  const sourceLabel = useSourceLabel();
   const [tab, setTab] = useState<"text" | "source">("text");
   const { data: source } = useGetOne<Rec<Source>>(
     "sources",
@@ -147,6 +149,23 @@ const ItemView = ({ item, onOpenItem }: { item: Rec<Item>; onOpenItem: (id: stri
             variant="outlined"
             label={translate(`aim.write.${item.write}`, { _: item.write })}
           />
+          {item.role && (
+            <Chip
+              size="small"
+              variant="outlined"
+              label={translate(`aim.roles.${item.kind}.${item.role}`, { _: item.role })}
+            />
+          )}
+          {item.shared && (
+            <Tooltip title={translate("aim.files.sharedHelp")}>
+              <Chip size="small" color="warning" variant="outlined" label={translate("aim.files.shared")} />
+            </Tooltip>
+          )}
+          {item.repo && (
+            <Tooltip title={translate("aim.files.repoHelp", { repo: item.repo })}>
+              <Chip size="small" variant="outlined" label={translate("aim.files.inRepo")} />
+            </Tooltip>
+          )}
           {item.pending && <PendingChip />}
           <Typography variant="body2" color="text.secondary" component="span">
             <DateField source="modTime" showTime />
@@ -154,6 +173,7 @@ const ItemView = ({ item, onOpenItem }: { item: Rec<Item>; onOpenItem: (id: stri
         </Stack>
         <ItemActions item={item} />
         <TransferLinks itemId={item.id} onOpenItem={onOpenItem} />
+        {item.shared && <SharedWith item={item} onOpenItem={onOpenItem} />}
         {item.description && <Typography color="text.secondary">{item.description}</Typography>}
         {warnings.length > 0 && (
           <Alert severity="warning">
@@ -181,12 +201,36 @@ const ItemView = ({ item, onOpenItem }: { item: Rec<Item>; onOpenItem: (id: stri
         <Meta label={translate("aim.preview.project")} value={projectLabel} />
         <Meta
           label={translate("aim.preview.source")}
-          value={source ? `${source.label} — ${source.root}` : ""}
+          value={source ? [sourceLabel(source), source.root].filter(Boolean).join(" — ") : ""}
         />
         <Meta label={translate("aim.preview.file")} value={item.file} mono />
+        <Meta label={translate("aim.preview.target")} value={item.target ?? ""} mono />
+        <Meta label={translate("aim.preview.repo")} value={item.repo ?? ""} mono />
         <Meta label={translate("aim.preview.anchor")} value={item.anchor} />
       </Stack>
     </RecordContextProvider>
+  );
+};
+
+// SharedWith — где ещё подключён тот же каталог навыка: правка затронет все
+// эти места (ADR-010).
+const SharedWith = ({ item, onOpenItem }: { item: Item; onOpenItem: (id: string) => void }) => {
+  const translate = useTranslate();
+  const links = (item.links ?? []).filter((l) => l.targetId);
+  if (links.length === 0) return null;
+  return (
+    <Alert severity="info">
+      {translate("aim.files.sharedWith")}
+      <ul style={{ margin: 0, paddingLeft: 20 }}>
+        {links.map((l) => (
+          <li key={l.targetId}>
+            <Link component="button" onClick={() => onOpenItem(l.targetId)} sx={{ fontFamily: "monospace" }}>
+              {l.text}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Alert>
   );
 };
 

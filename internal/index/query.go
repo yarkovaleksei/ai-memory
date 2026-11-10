@@ -12,6 +12,9 @@ import (
 )
 
 // Query — фильтры, поиск, сортировка и страница списка записей.
+// KindMemory — фильтр «вся автопамять»: любые виды, кроме инструкций и навыков.
+const KindMemory = "memory"
+
 type Query struct {
 	ProjectID    string // пусто — все проекты
 	Agent        string
@@ -89,7 +92,12 @@ func (ix *Index) Search(ctx context.Context, q Query) (Page, error) {
 	if q.Agent != "" {
 		add("i.agent = ?", q.Agent)
 	}
-	if q.Kind != "" {
+	switch q.Kind {
+	case "":
+	case KindMemory:
+		where = append(where, "i.kind NOT IN (?, ?)")
+		args = append(args, string(model.KindInstructions), string(model.KindSkill))
+	default:
 		add("i.kind = ?", q.Kind)
 	}
 	if q.Type != "" {

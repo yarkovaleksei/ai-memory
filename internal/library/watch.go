@@ -3,6 +3,7 @@ package library
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -24,10 +25,11 @@ func (l *Library) Watch(ctx context.Context, onUpdate func(Stats)) error {
 	defer w.Close()
 
 	current := map[string]bool{}
+	var filters map[string]map[string]bool
 	resync := func() {
-		want := map[string]bool{}
-		for _, d := range l.watchDirs() {
-			want[d] = true
+		want := l.watchDirs()
+		filters = want
+		for d := range want {
 			if !current[d] {
 				if err := w.Add(d); err != nil {
 					l.log.Debug("каталог не добавлен в наблюдение", "dir", d, "error", err)
@@ -37,7 +39,7 @@ func (l *Library) Watch(ctx context.Context, onUpdate func(Stats)) error {
 			}
 		}
 		for d := range current {
-			if !want[d] {
+			if _, ok := want[d]; !ok {
 				_ = w.Remove(d)
 				delete(current, d)
 			}
@@ -57,7 +59,7 @@ func (l *Library) Watch(ctx context.Context, onUpdate func(Stats)) error {
 			if !ok {
 				return nil
 			}
-			if ev.Op == fsnotify.Chmod {
+			if ev.Op == fsnotify.Chmod || !relevant(filters, ev.Name) {
 				continue
 			}
 			if timer == nil {
@@ -84,4 +86,13 @@ func (l *Library) Watch(ctx context.Context, onUpdate func(Stats)) error {
 			}
 		}
 	}
+}
+
+// relevant — изменение важно для индекса: каталог без фильтра или имя из фильтра.
+func relevant(filters map[string]map[string]bool, name string) bool {
+	names, ok := filters[filepath.Dir(name)]
+	if !ok || names == nil {
+		return true
+	}
+	return names[filepath.Base(name)]
 }

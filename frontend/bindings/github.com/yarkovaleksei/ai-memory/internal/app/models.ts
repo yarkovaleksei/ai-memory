@@ -161,6 +161,30 @@ export interface ListItem {
      * Pending — агент ещё не учёл запись: заметка Codex ждёт консолидации.
      */
     "pending": boolean;
+
+    /**
+     * Поля инструкций и навыков (ADR-019).
+     * Role — откуда запись: для инструкций main | local | override | rule,
+     * для навыков user | project | system | synced | memory.
+     */
+    "role"?: string;
+
+    /**
+     * Target — куда ведёт симлинк каталога навыка, если навык подключён симлинком.
+     */
+    "target"?: string;
+
+    /**
+     * Shared — на тот же каталог навыка указывают и другие записи: правка
+     * затронет всех.
+     */
+    "shared"?: boolean;
+
+    /**
+     * Repo — корень git-репозитория проекта, в котором лежит файл: изменение
+     * появится в его git status.
+     */
+    "repo"?: string;
     "snippet": string;
 }
 

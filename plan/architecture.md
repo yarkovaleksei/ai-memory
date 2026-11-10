@@ -89,6 +89,7 @@ type Source struct {
     Root     string    // абсолютный путь корня памяти
     ReadOnly bool      // источник целиком только для чтения (Codex v1)
     Warnings []Warning // проблемы уровня источника (autoMemoryDirectory, ошибка чтения)
+    Files    bool      // инструкции и навыки, а не память (ADR-019)
 }
 
 // Project объединяет память одного проекта из всех хранилищ (internal/catalog).
@@ -112,8 +113,8 @@ const (
     KindCodexAdHocNote ItemKind = "codex-adhoc-note"      // extensions/ad_hoc/notes/*.md
     KindCodexRaw       ItemKind = "codex-raw"             // raw_memories.md (v1)
 
-    // Фаза 4 (ADR-010): инструкции и навыки.
-    KindInstructions ItemKind = "instructions" // CLAUDE.md, AGENTS.md: глобальные и проектные
+    // Фаза 4 (ADR-010, ADR-019): инструкции и навыки.
+    KindInstructions ItemKind = "instructions" // CLAUDE.md, AGENTS.md и правила: файл целиком
     KindSkill        ItemKind = "skill"        // каталог с SKILL.md
 )
 
@@ -144,6 +145,12 @@ type Item struct {
     Hash        string // sha256 файла: оптимистичная блокировка при записи
     Write       WriteMode
     Warnings    []Warning // неожиданная структура, расхождение с индексом
+
+    // Инструкции и навыки (ADR-019).
+    Role   string // main | local | override | rule; навыки: user | project | system | synced | memory
+    Target string // куда ведёт симлинк каталога навыка
+    Shared bool   // на тот же каталог навыка указывают и другие записи
+    Repo   string // корень git-репозитория проекта, где лежит файл
 }
 
 // Warning — код и параметры, а не текст: текст собирает фронтенд по словарю (ADR-008).
@@ -170,9 +177,10 @@ type Adapter interface {
 Планы записи (фаза 2) — функции пакетов адаптеров: `claude.PlanCreate`, `PlanUpdate`, `PlanUpdateRaw`, `PlanDelete`, `PlanFixIndex`; `codex.PlanNewNote`, `PlanForget`, `PlanUpdateNote`. Они только читают диск и возвращают `writer.Plan`; пишет `internal/writer`. Защита памяти Codex — `codex.Guard`, он подключается к writer'у как `writer.Guard`.
 
 - **Claude.** Обходит профили, парсит frontmatter (терпимо к вариантам), восстанавливает путь проекта по `cwd` из jsonl, сверяет индекс `MEMORY.md` с файлами и записывает расхождения в `Warnings` (факт без строки в индексе, строка без файла).
+- **Инструкции и навыки** (`internal/adapter/agentfiles`, ADR-019). Читает `CLAUDE.md` и правила профилей Claude, `AGENTS.md` и `AGENTS.override.md` в `CODEX_HOME`, навыки профилей, `CODEX_HOME/skills` и `~/.agents/skills`, а в каталогах проектов — их инструкции и навыки. Пути проектов ему проставляет библиотека по прочитанной памяти. Навыки с одним каталогом после раскрытия симлинков помечает общими и связывает ссылками. Навыки, выведенные Codex из памяти (`memories*/skills`), читает адаптер Codex — только чтение.
 - **Codex.** Читает активное поколение — из настроек ai-memory, `[memories] version` в `config.toml` Codex или по самой свежей работе конвейера в его базах; неактивное — по настройке и только для чтения, режет `memory_summary.md` на разделы, читает заголовки `rollout_summaries`, перечисляет ad-hoc-заметки. SQLite Codex открывает только на чтение и только при необходимости (счётчики `usage_count`, `last_usage`).
 
-`internal/library` связывает адаптеры, `catalog` и `index`: пересобирает индекс целиком при запуске и после изменений файлов (пауза 400 мс после последнего события `fsnotify`), набор наблюдаемых каталогов обновляет после каждой пересборки.
+`internal/library` связывает адаптеры, `catalog` и `index`: пересобирает индекс целиком при запуске и после изменений файлов (пауза 400 мс после последнего события `fsnotify`), набор наблюдаемых каталогов обновляет после каждой пересборки. Порядок пересборки: сначала память, затем инструкции и навыки — по путям проектов из памяти. В корне профиля Claude, `CODEX_HOME` и каталогах проектов наблюдение реагирует только на имена файлов инструкций (`adapter.NameFilter`): историю, логи и сессии агенты пишут туда постоянно.
 
 ## Запись
 

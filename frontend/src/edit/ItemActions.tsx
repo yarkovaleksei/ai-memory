@@ -36,6 +36,10 @@ const Gate = ({ reason, children }: { reason: string; children: ReactNode }) =>
 
 const isFact = (it: Pick<Item, "kind" | "write">) => it.kind === "claude-fact" && it.write === "direct";
 
+// Инструкции и навыки — не автопамять: перенос факта, объединение, «Забыть»
+// к ним не применяются, у них будут свои операции (ADR-019).
+export const isMemory = (it: Pick<Item, "kind">) => it.kind !== "instructions" && it.kind !== "skill";
+
 // ItemActions — что можно сделать с записью. Набор зависит от вида записи:
 // факт Claude правится и удаляется напрямую, записи Codex меняются только
 // заметками (ADR-002), MEMORY.md чинится по файлам фактов.
@@ -74,11 +78,11 @@ export const ItemActions = ({ item }: { item: Item }) => {
   if (item.kind === "codex-adhoc-note" && item.write === "direct") {
     add("editNote", "aim.actions.editNote", () => setNote({ kind: "edit", itemId: item.id }));
   }
-  if (item.agent === "codex" && item.write !== "none") {
+  if (item.agent === "codex" && item.write !== "none" && isMemory(item)) {
     add("refine", "aim.actions.refine", () => setNote({ kind: "refine", title: item.title }));
     add("forget", "aim.actions.forget", () => setNote({ kind: "forget", title: item.title }), "error");
   }
-  if (item.kind !== "claude-index" && transferTargets(item, agents).length > 0) {
+  if (item.kind !== "claude-index" && isMemory(item) && transferTargets(item, agents).length > 0) {
     add("transfer", "aim.actions.transfer", () => setTransfer(true));
   }
   if (buttons.length === 0) return null;
@@ -216,4 +220,4 @@ export const BulkActions = () => {
 // для записи Codex пишется заметка «Забыть». Сводки и сгенерированные файлы
 // Codex только читаются.
 export const isSelectable = (it: Pick<Item, "agent" | "kind" | "write">) =>
-  isFact(it) || (it.agent === "codex" && it.write !== "none");
+  isFact(it) || (it.agent === "codex" && it.write !== "none" && isMemory(it));

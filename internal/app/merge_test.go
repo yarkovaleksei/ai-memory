@@ -84,6 +84,10 @@ func TestMergeRefuses(t *testing.T) {
 	ctx := context.Background()
 	yarn := e.find(t, model.KindClaudeFact, "Пакеты только через yarn")
 	section := e.find(t, model.KindCodexSection, "User preferences")
+	// Инструкции и навыки Codex пишутся напрямую, но это не память: «Забыть»
+	// для них не годится (ADR-019).
+	agents := e.find(t, model.KindInstructions, "AGENTS.md")
+	skill := e.find(t, model.KindSkill, "lint-fix")
 	tests := []struct {
 		name string
 		req  MergeRequest
@@ -93,6 +97,10 @@ func TestMergeRefuses(t *testing.T) {
 		{"нет «забыть» для Codex", MergeRequest{ItemIDs: []string{yarn.ID, section.ID}, Target: model.AgentCodex, Title: "t", Body: "b"}, "codex.note.body-empty"},
 		{"неизвестная цель", MergeRequest{ItemIDs: []string{yarn.ID, section.ID}, Target: "x",
 			Forget: []NoteText{{ItemID: section.ID, Title: "t", Body: "b"}}}, "merge.target-invalid"},
+		{"инструкции Codex", MergeRequest{ItemIDs: []string{yarn.ID, agents.ID}, Target: model.AgentClaude,
+			Forget: []NoteText{{ItemID: agents.ID, Title: "t", Body: "b"}}}, "plan.readonly"},
+		{"навык Codex", MergeRequest{ItemIDs: []string{yarn.ID, skill.ID}, Target: model.AgentClaude,
+			Forget: []NoteText{{ItemID: skill.ID, Title: "t", Body: "b"}}}, "plan.readonly"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -100,5 +108,20 @@ func TestMergeRefuses(t *testing.T) {
 				t.Errorf("код = %v, want %s", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestTransferRefusesNonMemory(t *testing.T) {
+	e := newEditEnv(t)
+	ctx := context.Background()
+	yarn := e.find(t, model.KindClaudeFact, "Пакеты только через yarn")
+	for _, it := range []model.Item{
+		e.find(t, model.KindInstructions, "AGENTS.md"),
+		e.find(t, model.KindSkill, "release-notes"),
+	} {
+		_, err := e.plans.TransferToClaude(ctx, it.ID, yarn.SourceID, yarn.ProjectID, claude.FactInput{Name: "x", Type: "user", Body: "b"}, true, "t", "b")
+		if errCode(err) != "plan.not-memory" {
+			t.Errorf("%s: код = %v, want plan.not-memory", it.Title, err)
+		}
 	}
 }

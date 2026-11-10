@@ -6,13 +6,14 @@
 
 ## Как направить приложение на фикстуры
 
-`wails3 task dev` делает это сам: выставляет `AI_MEMORY_CLAUDE_DIRS`, `AI_MEMORY_CODEX_HOME`, а данные и настройки кладёт в `.task/`. На настоящей памяти — `wails3 task dev REAL=true`.
+`wails3 task dev` делает это сам: готовит копию фикстур в `.task/dev-home` (`cmd/devhome` заменяет в ней выдуманный `/home/me` путём копии, чтобы проекты из памяти указывали на её каталоги), выставляет `AI_MEMORY_CLAUDE_DIRS`, `AI_MEMORY_CODEX_HOME`, `AI_MEMORY_AGENTS_DIR`, а данные и настройки кладёт в `.task/`. На настоящей памяти — `wails3 task dev REAL=true`.
 
 Вручную, например для собранного бинаря:
 
 ```bash
 export AI_MEMORY_CLAUDE_DIRS="$PWD/fixtures/home/.claude:$PWD/fixtures/home/.claude-work"
 export AI_MEMORY_CODEX_HOME="$PWD/fixtures/home/.codex"
+export AI_MEMORY_AGENTS_DIR="$PWD/fixtures/home/.agents"
 export AI_MEMORY_DATA_DIR="$PWD/.task/ai-memory-data"
 ```
 
@@ -34,6 +35,8 @@ export AI_MEMORY_DATA_DIR="$PWD/.task/ai-memory-data"
 | `.claude/projects/-home-me-projects-empty/` | Проект без каталога `memory/` |
 | `.claude-work/projects/-home-me-projects-demo/` | Тот же проект во втором профиле; `yarn-only.md` — дубль факта `prefer-yarn` |
 | `.claude/skills/`, `CLAUDE.md` в обоих профилях | Навык и глобальные инструкции (фаза 4) |
+| `.claude/rules/style.md` | Глобальное правило с frontmatter `paths` |
+| `.claude/skills/synced/bucket-1/` | Навык, синхронизированный с аккаунтом claude.ai: только чтение |
 
 ### Codex
 
@@ -44,6 +47,15 @@ export AI_MEMORY_DATA_DIR="$PWD/.task/ai-memory-data"
 | `.codex/config.toml` | `[memories] version = "v2"`: активное поколение задано явно, баз Codex в фикстурах нет (Q3) |
 | `.codex/memories/` | Заброшенное поколение v1: `MEMORY.md`, `raw_memories.md`, навык из памяти, старая заметка |
 | `.codex/skills/`, `.codex/AGENTS.md` | Навык и глобальные инструкции (фаза 4) |
+| `.codex/skills/.system/plan-helper/` | Системный навык Codex: только чтение |
+| `.codex/skills/no-description/` | Навык без `description`: Codex его не загрузит — нужно предупреждение |
+
+### Общий каталог и проект
+
+| Где | Случай |
+|---|---|
+| `.agents/skills/commit-message/` | Навык в общем `~/.agents/skills`: его читает Codex |
+| `projects/demo/` | Каталог проекта `/home/me/projects/demo`: `CLAUDE.md` с импортом `@AGENTS.md`, `CLAUDE.local.md`, `AGENTS.md`, затеняющий его `AGENTS.override.md`, правило `.claude/rules/testing.md`, навыки `.claude/skills/deploy-preview` (с полями, которых нет у Codex) и `.agents/skills/changelog`. Тесты находят его по пути из памяти, заменив `/home/me` путём копии фикстур |
 
 ## Чего здесь нет и почему
 

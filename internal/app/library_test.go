@@ -59,7 +59,13 @@ func TestLibraryService(t *testing.T) {
 		t.Fatalf("Projects: %+v %v", projects, err)
 	}
 	sources, err := s.Sources(ctx)
-	if err != nil || len(sources) != 2 {
+	memory := 0
+	for _, src := range sources {
+		if !src.Files {
+			memory++
+		}
+	}
+	if err != nil || memory != 2 || len(sources) != 4 {
 		t.Fatalf("Sources: %+v %v", sources, err)
 	}
 

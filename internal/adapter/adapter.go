@@ -26,6 +26,14 @@ type Adapter interface {
 	WatchDirs(src model.Source) []string
 }
 
+// NameFilter — адаптер, которому в части наблюдаемых каталогов важны только
+// некоторые имена: в корне профиля Claude или CODEX_HOME агент постоянно пишет
+// историю и логи, а нужны только файлы инструкций (ADR-019).
+type NameFilter interface {
+	// WatchNames — каталог → имена файлов и подкаталогов, изменения которых важны.
+	WatchNames(src model.Source) map[string][]string
+}
+
 // RelPath — путь файла относительно корня хранилища в виде со слэшами:
 // годится для стабильного ID на любой ОС.
 func RelPath(root, file string) string {

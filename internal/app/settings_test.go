@@ -50,7 +50,7 @@ func TestSettingsSaveAppliesWithoutRestart(t *testing.T) {
 		srcs, _ := lib.Sources(ctx)
 		n := 0
 		for _, src := range srcs {
-			if src.Agent == model.AgentClaude {
+			if src.Agent == model.AgentClaude && !src.Files {
 				n++
 			}
 		}

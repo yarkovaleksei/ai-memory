@@ -21,6 +21,9 @@ const (
 	EnvClaudeDirs = "AI_MEMORY_CLAUDE_DIRS"
 	// EnvCodexHome — корень Codex. Если задан, важнее CODEX_HOME.
 	EnvCodexHome = "AI_MEMORY_CODEX_HOME"
+	// EnvAgentsDir — общий каталог агентов (~/.agents): Codex читает навыки из
+	// его skills/ (ADR-019). Нужен тестам и разработке на фикстурах.
+	EnvAgentsDir = "AI_MEMORY_AGENTS_DIR"
 	// EnvConfigDir и EnvDataDir переопределяют собственные каталоги ai-memory.
 	EnvConfigDir = "AI_MEMORY_CONFIG_DIR"
 	EnvDataDir   = "AI_MEMORY_DATA_DIR"
@@ -44,6 +47,8 @@ type Config struct {
 	ClaudeProfiles []string
 	// CodexHome — корень Codex.
 	CodexHome string
+	// AgentsDir — общий каталог агентов (~/.agents): навыки в его skills/ видит Codex.
+	AgentsDir string
 	// CodexGeneration — активное поколение памяти Codex («v1»/«v2»); пусто —
 	// ai-memory определяет его сам по настройкам и базам Codex.
 	CodexGeneration string
@@ -77,6 +82,7 @@ func Load(env Env) (Config, error) {
 		DataDir:        dataDir,
 		ClaudeProfiles: claudeProfiles(env),
 		CodexHome:      codexHome(env),
+		AgentsDir:      agentsDir(env),
 	}, nil
 }
 
@@ -176,6 +182,15 @@ func codexHome(env Env) string {
 		}
 	}
 	return join(env, env.Home, ".codex")
+}
+
+func agentsDir(env Env) string {
+	if v := env.Getenv(EnvAgentsDir); v != "" {
+		if abs, err := absClean(env, v); err == nil {
+			return abs
+		}
+	}
+	return join(env, env.Home, ".agents")
 }
 
 // Ниже — работа с путями целевой ОС, а не той, где идут тесты.

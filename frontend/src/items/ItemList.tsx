@@ -25,7 +25,7 @@ import type { ListItem } from "../api/bindings";
 import { BulkActions, CreateMenu, isSelectable } from "../edit/ItemActions";
 import { RELEVANCE, type AimDataProvider } from "../dataProvider";
 import { EmptyState } from "../layout/EmptyState";
-import { AgentBadge, TypeBadge } from "./badges";
+import { AgentBadge, KindBadge } from "./badges";
 import { ItemPreview, PendingChip } from "./ItemPreview";
 import { ProjectTree } from "./ProjectTree";
 import { splitSnippet, useErrorText } from "./text";
@@ -44,6 +44,15 @@ const itemFilters = [
       { id: "claude", name: "aim.agents.claude" },
       { id: "codex", name: "aim.agents.codex" },
     ]}
+  />,
+  // Раздел: вся автопамять, инструкции или навыки. «memory» — фильтр индекса
+  // «всё, кроме инструкций и навыков».
+  <SelectInput
+    key="kind"
+    fullWidth={false}
+    source="kind"
+    alwaysOn
+    choices={["memory", "instructions", "skill"].map((k) => ({ id: k, name: `aim.sections.${k}` }))}
   />,
   <SelectInput
     key="type"
@@ -151,7 +160,7 @@ const ItemTable = ({ selected, onSelect }: { selected: string | null; onSelect: 
     >
       <DataTable.Col source="title" render={() => <TitleCell />} />
       <DataTable.Col source="agent" render={(r) => <AgentBadge agent={r.agent} />} />
-      <DataTable.Col source="type" render={(r) => <TypeBadge type={r.type} />} />
+      <DataTable.Col source="type" render={(r) => <KindBadge kind={r.kind} type={r.type} />} />
       <DataTable.Col source="modTime" field={DateField} />
     </DataTable>
   );

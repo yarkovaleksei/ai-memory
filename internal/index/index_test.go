@@ -29,6 +29,8 @@ func testIndex(t *testing.T) *Index {
 			Warnings: []model.Warning{{Code: "x"}}},
 		{ID: "c", Agent: model.AgentClaude, Kind: model.KindClaudeFact, Type: "project", ProjectID: "tmp",
 			Title: "Черновик", Body: "временная ветка", ModTime: at(2), Project: model.ProjectRef{Temp: true}},
+		{ID: "d", Agent: model.AgentClaude, Kind: model.KindInstructions, ProjectID: "p1",
+			Title: "CLAUDE.md", Body: "Правила проекта", ModTime: at(4)},
 	}
 	projects := []model.Project{{ID: "p1", Label: "demo"}, {ID: "tmp", Label: "s", Temp: true}}
 	sources := []model.Source{{ID: "claude:x"}, {ID: "codex:y"}}
@@ -54,8 +56,10 @@ func TestSearch(t *testing.T) {
 		want  []string
 		total int
 	}{
-		{"без фильтров скрывает временные, новые сверху", Query{}, []string{"b", "a"}, 2},
-		{"с временными", Query{IncludeTemp: true}, []string{"b", "c", "a"}, 3},
+		{"без фильтров скрывает временные, новые сверху", Query{}, []string{"d", "b", "a"}, 3},
+		{"с временными", Query{IncludeTemp: true}, []string{"d", "b", "c", "a"}, 4},
+		{"вся память без инструкций и навыков", Query{Kind: KindMemory}, []string{"b", "a"}, 2},
+		{"только инструкции", Query{Kind: string(model.KindInstructions)}, []string{"d"}, 1},
 		{"явно выбранный временный проект", Query{ProjectID: "tmp"}, []string{"c"}, 1},
 		{"агент", Query{Agent: "codex"}, []string{"b"}, 1},
 		{"тип", Query{Type: "feedback"}, []string{"a"}, 1},
@@ -66,8 +70,8 @@ func TestSearch(t *testing.T) {
 		{"слова через AND", Query{Text: "ветк main"}, []string{"a"}, 1},
 		{"кавычки и звёздочки из ввода не ломают запрос", Query{Text: `"ветк*`, IncludeTemp: true}, nil, 2},
 		{"OR — обычное слово, а не оператор", Query{Text: "ветк OR"}, nil, 0},
-		{"сортировка по названию по алфавиту, ё как е", Query{Sort: "title", IncludeTemp: true}, []string{"a", "b", "c"}, 3},
-		{"страница", Query{Sort: "title", IncludeTemp: true, Offset: 1, Limit: 1}, []string{"b"}, 3},
+		{"сортировка по названию по алфавиту, ё как е", Query{Sort: "title", IncludeTemp: true}, []string{"d", "a", "b", "c"}, 4},
+		{"страница", Query{Sort: "title", IncludeTemp: true, Offset: 1, Limit: 1}, []string{"a"}, 4},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -118,8 +118,10 @@ func TestRebuildOnFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Sources != 3 { // два профиля Claude и Codex v2; v1 выключена по умолчанию
-		t.Errorf("sources = %d, want 3", st.Sources)
+	// Память: два профиля Claude и Codex v2 (v1 выключена по умолчанию).
+	// Инструкции и навыки: те же два профиля и CODEX_HOME.
+	if st.Sources != 6 {
+		t.Errorf("sources = %d, want 6", st.Sources)
 	}
 	if st.Items == 0 || st.Projects == 0 {
 		t.Fatalf("пустая пересборка: %+v", st)
@@ -271,8 +273,9 @@ func TestRebuildWithoutAgents(t *testing.T) {
 		sources int
 	}{
 		{"нет ни Claude, ни Codex", []string{only(".claude-нет")}, only(".codex-нет"), 0},
-		{"только Claude", []string{only(".claude")}, only(".codex-нет"), 1},
-		{"только Codex", []string{only(".claude-нет")}, filepath.Join(copyFixtures(t), ".codex"), 1},
+		// Память агента и его инструкции с навыками — два хранилища.
+		{"только Claude", []string{only(".claude")}, only(".codex-нет"), 2},
+		{"только Codex", []string{only(".claude-нет")}, filepath.Join(copyFixtures(t), ".codex"), 2},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -14,6 +14,7 @@ export const useWritableAgents = (): WritableAgents => {
   const { data = [] } = useGetList<Source & { id: string }>("sources", {
     pagination: { page: 1, perPage: 1000 },
   });
-  const has = (agent: string) => data.some((s) => s.agent === agent && !s.readOnly);
+  // Хранилища инструкций и навыков (files) не в счёт: факт и заметка пишутся в память.
+  const has = (agent: string) => data.some((s) => s.agent === agent && !s.readOnly && !s.files);
   return { claude: has("claude"), codex: has("codex") };
 };

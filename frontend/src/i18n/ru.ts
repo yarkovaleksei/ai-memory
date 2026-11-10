@@ -15,7 +15,7 @@ const ru: TranslationMessages = {
         title: "Название",
         agent: "Агент",
         type: "Тип",
-        kind: "Вид",
+        kind: "Раздел",
         modTime: "Изменено",
         includeTemp: "С временными",
         warningsOnly: "С предупреждениями",
@@ -51,6 +51,8 @@ const ru: TranslationMessages = {
       "codex-rollout": "Сводка сессии",
       "codex-adhoc-note": "Заметка",
       "codex-raw": "Сырые воспоминания",
+      instructions: "Инструкции",
+      skill: "Навык",
     },
     write: {
       direct: "Правится напрямую",
@@ -89,6 +91,8 @@ const ru: TranslationMessages = {
       body: "Текст",
       file: "Файл",
       anchor: "Раздел",
+      target: "Симлинк на",
+      repo: "Git-репозиторий",
       source: "Хранилище",
       project: "Проект",
       warnings: "Предупреждения",
@@ -115,6 +119,59 @@ const ru: TranslationMessages = {
       source: {
         "scan-failed": "Хранилище не прочитано: %{error}",
       },
+      skill: {
+        frontmatter: {
+          missing: "Нет frontmatter: имя навыка взято из имени каталога",
+          invalid: "Frontmatter навыка не разобран: %{error}",
+        },
+      },
+      instructions: {
+        frontmatter: {
+          invalid: "Frontmatter не разобран: %{error}",
+        },
+      },
+      codex: {
+        skill: {
+          "no-description": "Нет description: Codex такой навык не загрузит",
+          "name-too-long": "name длиннее %{max} символов: Codex такой навык не загрузит",
+          "file-symlink":
+            "SKILL.md — симлинк: Codex такие файлы пропускает, подключайте симлинком весь каталог",
+        },
+        instructions: {
+          shadowed: "Рядом лежит %{file}: Codex читает его вместо этого файла",
+        },
+      },
+    },
+    sections: {
+      memory: "Память",
+      instructions: "Инструкции",
+      skill: "Навыки",
+    },
+    roles: {
+      instructions: {
+        main: "Основной файл",
+        local: "Личный файл",
+        override: "Замена AGENTS.md",
+        rule: "Правило",
+      },
+      skill: {
+        user: "Навык пользователя",
+        project: "Навык проекта",
+        system: "Системный",
+        synced: "Из аккаунта claude.ai",
+        memory: "Выведен из памяти",
+      },
+    },
+    files: {
+      shared: "Общий навык",
+      sharedHelp: "Тот же каталог подключён в нескольких местах: правка затронет все",
+      sharedWith: "Этот каталог навыка подключён и здесь:",
+      inRepo: "В git-репозитории проекта",
+      repoHelp: "Файл лежит в git-репозитории %{repo}: правка появится в его git status",
+    },
+    sources: {
+      files: "%{label} — инструкции и навыки %{agent}",
+      projectFiles: "Инструкции и навыки %{agent} в проектах",
     },
     errors: {
       unknown: "Неизвестная ошибка: %{detail}",
@@ -152,6 +209,7 @@ const ru: TranslationMessages = {
       plan: {
         "not-found": "План устарел — постройте его заново",
         readonly: "«%{title}» нельзя править напрямую",
+        "not-memory": "«%{title}» — не запись памяти: у инструкций и навыков свои операции",
         "source-invalid": "Профиль Claude не найден",
         "delete-unsupported":
           "«%{title}» нельзя удалить: удаляются только факты Claude, для записей Codex есть «Забыть»",

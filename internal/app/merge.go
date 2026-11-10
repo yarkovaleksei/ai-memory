@@ -53,7 +53,7 @@ func (s *PlansService) Merge(ctx context.Context, req MergeRequest) (writer.Plan
 		switch {
 		case it.Kind == model.KindClaudeFact && it.Write == model.WriteDirect:
 			facts = append(facts, claude.FactRef{File: it.File, Hash: it.Hash})
-		case it.Agent == model.AgentCodex && it.Write != model.WriteNone:
+		case it.Agent == model.AgentCodex && it.Write != model.WriteNone && it.Kind.Memory():
 			f, ok := forget[id]
 			if !ok {
 				return writer.Plan{}, fail("codex.note.body-empty")

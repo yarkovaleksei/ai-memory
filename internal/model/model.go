@@ -26,6 +26,9 @@ type Source struct {
 	Root     string    `json:"root"`     // абсолютный путь корня памяти
 	ReadOnly bool      `json:"readOnly"` // источник только для чтения целиком (Codex v1)
 	Warnings []Warning `json:"warnings"` // проблемы на уровне источника
+	// Files — хранилище инструкций и навыков, а не памяти (ADR-019): туда не
+	// пишутся факты и заметки.
+	Files bool `json:"files,omitempty"`
 }
 
 // ItemKind — вид записи памяти.
@@ -38,7 +41,21 @@ const (
 	KindCodexRollout   ItemKind = "codex-rollout"         // rollout_summaries/*.md
 	KindCodexAdHocNote ItemKind = "codex-adhoc-note"      // extensions/ad_hoc/notes/*.md
 	KindCodexRaw       ItemKind = "codex-raw"             // raw_memories.md (v1)
+
+	// Фаза 4 (ADR-010, ADR-019): инструкции и навыки агентов.
+	KindInstructions ItemKind = "instructions" // CLAUDE.md, AGENTS.md и правила: файл целиком
+	KindSkill        ItemKind = "skill"        // каталог с SKILL.md
 )
+
+// Memory — запись автопамяти агента, а не инструкции или навык: к ней
+// применимы перенос факта, объединение и «Забыть» (ADR-019).
+func (k ItemKind) Memory() bool {
+	switch k {
+	case KindInstructions, KindSkill:
+		return false
+	}
+	return true
+}
 
 // WriteMode показывает, что интерфейс сможет сделать с записью начиная с фазы 2.
 type WriteMode string
@@ -97,6 +114,21 @@ type Item struct {
 	Warnings    []Warning      `json:"warnings"`
 	// Pending — агент ещё не учёл запись: заметка Codex ждёт консолидации.
 	Pending bool `json:"pending"`
+
+	// Поля инструкций и навыков (ADR-019).
+	// Role — откуда запись: для инструкций main | local | override | rule,
+	// для навыков user | project | system | synced | memory.
+	Role string `json:"role,omitempty"`
+	// Target — куда ведёт симлинк каталога навыка, если навык подключён симлинком.
+	Target string `json:"target,omitempty"`
+	// Shared — на тот же каталог навыка указывают и другие записи: правка
+	// затронет всех.
+	Shared bool `json:"shared,omitempty"`
+	// Repo — корень git-репозитория проекта, в котором лежит файл: изменение
+	// появится в его git status.
+	Repo string `json:"repo,omitempty"`
+	// RealDir — каталог навыка с раскрытыми симлинками: по нему ищутся общие навыки.
+	RealDir string `json:"-"`
 
 	Project ProjectRef `json:"-"`
 }

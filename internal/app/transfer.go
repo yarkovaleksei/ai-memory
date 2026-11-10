@@ -48,6 +48,10 @@ func (s *PlansService) TransferToClaude(ctx context.Context, itemID, sourceID, p
 	if err != nil {
 		return writer.Plan{}, err
 	}
+	// Инструкции и навыки переносятся своими операциями (фаза 4), а не как факт.
+	if !it.Kind.Memory() {
+		return writer.Plan{}, fail("plan.not-memory", "title", it.Title)
+	}
 	memDir, err := s.memoryDir(ctx, sourceID, projectID)
 	if err != nil {
 		return writer.Plan{}, err
@@ -65,7 +69,7 @@ func (s *PlansService) TransferToClaude(ctx context.Context, itemID, sourceID, p
 				return writer.Plan{}, fail("transfer.same-place")
 			}
 			remove, err = claude.PlanDeleteMany([]claude.FactRef{{File: it.File, Hash: it.Hash}})
-		case it.Agent == model.AgentCodex && it.Write != model.WriteNone:
+		case it.Agent == model.AgentCodex && it.Write != model.WriteNone && it.Kind.Memory():
 			g, _ := s.e.codexAdapter().Active(ctx)
 			remove, err = codex.PlanForget(s.e.rt.Config().CodexHome, g, forgetTitle, forgetBody)
 		default:

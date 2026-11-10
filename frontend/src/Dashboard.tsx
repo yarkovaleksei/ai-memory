@@ -2,6 +2,7 @@ import { Alert, Card, CardContent, List, ListItem, ListItemText, Stack, Typograp
 import { useQuery } from "@tanstack/react-query";
 import { Title, useGetList, useTranslate } from "react-admin";
 import { InfoService, type AppInfo, type Source } from "./api/bindings";
+import { useSourceLabel } from "./items/sourceLabel";
 import { useWarningText } from "./items/text";
 
 // Экран «О программе»: версия, каталоги ai-memory и найденные хранилища памяти
@@ -70,6 +71,7 @@ const PathItem = ({ label, path }: { label: string; path: string }) => (
 
 const SourceList = () => {
   const translate = useTranslate();
+  const sourceLabel = useSourceLabel();
   const warningText = useWarningText();
   const { data = [] } = useGetList<Source & { id: string }>("sources", {
     pagination: { page: 1, perPage: 1000 },
@@ -84,7 +86,11 @@ const SourceList = () => {
         {data.map((s) => (
           <ListItem key={s.id} disableGutters sx={{ display: "block" }}>
             <ListItemText
-              primary={s.readOnly ? `${s.label} · ${translate("aim.dashboard.readOnlySource")}` : s.label}
+              primary={
+                s.readOnly
+                  ? `${sourceLabel(s)} · ${translate("aim.dashboard.readOnlySource")}`
+                  : sourceLabel(s)
+              }
               secondary={s.root}
             />
             {(s.warnings ?? []).map((w, i) => (

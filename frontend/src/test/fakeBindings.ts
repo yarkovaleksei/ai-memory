@@ -82,6 +82,56 @@ export const items: Item[] = [
     file: "/fx/.codex/memories_v2/memory_summary.md",
     write: "via-note",
   } as unknown as Item,
+  // Инструкции и навыки (ADR-019): AGENTS.md проекта в его git-репозитории и
+  // навык из ~/.agents, подключённый в профиль Claude симлинком.
+  {
+    ...base,
+    id: "i-agents",
+    sourceId: "codex-projects",
+    projectId: "path:/home/me/projects/demo",
+    agent: "codex",
+    kind: "instructions",
+    type: "",
+    role: "main",
+    repo: "/home/me/projects/demo",
+    title: "AGENTS.md",
+    description: "Правила проекта demo",
+    body: "# Правила проекта demo\n\n- Коммить только по просьбе.",
+    file: "/home/me/projects/demo/AGENTS.md",
+  } as unknown as Item,
+  {
+    ...base,
+    id: "i-skill",
+    sourceId: "claude-files:/fx/.claude",
+    projectId: "global",
+    agent: "claude",
+    kind: "skill",
+    type: "",
+    role: "user",
+    shared: true,
+    target: "/fx/.agents/skills/commit-message",
+    title: "commit-message",
+    description: "Пишет сообщение коммита.",
+    body: "# Сообщение коммита",
+    file: "/fx/.claude/skills/commit-message/SKILL.md",
+    links: [{ text: "/fx/.agents/skills/commit-message", targetId: "i-skill-codex" }],
+  } as unknown as Item,
+  {
+    ...base,
+    id: "i-skill-codex",
+    sourceId: "agents-files:/fx/.agents",
+    projectId: "global",
+    agent: "codex",
+    kind: "skill",
+    type: "",
+    role: "user",
+    shared: true,
+    title: "commit-message (Codex)",
+    description: "Пишет сообщение коммита.",
+    body: "# Сообщение коммита",
+    file: "/fx/.agents/skills/commit-message/SKILL.md",
+    links: [{ text: "/fx/.claude/skills/commit-message", targetId: "i-skill" }],
+  } as unknown as Item,
 ];
 
 export const projects: Project[] = [
@@ -137,6 +187,15 @@ export const sources: Source[] = [
     readOnly: false,
     warnings: [],
   },
+  {
+    id: "codex-projects",
+    agent: "codex",
+    label: "",
+    root: "",
+    readOnly: false,
+    files: true,
+    warnings: [],
+  },
 ] as unknown as Source[];
 
 // Sources — vi.fn: тест «нет агента» подменяет список хранилищ.
@@ -149,6 +208,10 @@ export const listItems = vi.fn((q: ItemQuery) => {
     q.projectId ? it.projectId === q.projectId : q.includeTemp || !temp.has(it.projectId),
   );
   if (q.agent) hits = hits.filter((it) => it.agent === q.agent);
+  // «memory» — вся автопамять без инструкций и навыков, как в индексе.
+  const files = (k: string) => k === "instructions" || k === "skill";
+  if (q.kind === "memory") hits = hits.filter((it) => !files(it.kind));
+  else if (q.kind) hits = hits.filter((it) => it.kind === q.kind);
   if (q.q) {
     const needle = q.q.toLowerCase();
     hits = hits.filter((it) => (it.title + " " + it.body).toLowerCase().includes(needle));

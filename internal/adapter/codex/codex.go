@@ -110,7 +110,21 @@ func (a Adapter) Scan(ctx context.Context, src model.Source) ([]model.Item, erro
 		return nil, err
 	}
 	items = append(items, notes...)
+	items = append(items, s.skills()...)
 	return items, nil
+}
+
+// skills — навыки, которые Codex вывел из памяти (memories*/skills). Это не
+// корень навыков Codex, а часть памяти: модель читает их по ссылкам из сводки.
+// Сгенерированы — только чтение (ADR-002, ADR-019).
+func (s scanner) skills() []model.Item {
+	var out []model.Item
+	for _, dir := range adapter.SkillDirs(filepath.Join(s.src.Root, "skills")) {
+		if it, ok := adapter.ReadSkill(s.src, dir, "memory", model.WriteNone, model.ProjectRef{Global: true}); ok {
+			out = append(out, it)
+		}
+	}
+	return out
 }
 
 type scanner struct {
