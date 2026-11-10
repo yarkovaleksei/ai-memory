@@ -1,1 +1,32 @@
+# Редактор
 .vscode
+.idea
+
+# Сборка Wails и Task
+bin/
+.task/
+build/linux/appimage/build
+build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
+
+# Фронтенд: зависимости и сборка. Привязки frontend/bindings коммитятся.
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/*.tsbuildinfo
+
+# yarn 4: в репозитории только конфиг и lock, без кэша и PnP
+frontend/.yarn/*
+!frontend/.yarn/patches
+!frontend/.yarn/plugins
+!frontend/.yarn/releases
+!frontend/.yarn/sdks
+frontend/.pnp.*
+
+# Go
+*.test
+*.out
+coverage.*
+
+# Системное
+.DS_Store
+Thumbs.db

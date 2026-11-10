@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=ai-memory
+Exec=ai-memory
+Icon=ai-memory
+Categories=Development;
+Terminal=false
+Keywords=wails
+Version=1.0
+StartupNotify=false

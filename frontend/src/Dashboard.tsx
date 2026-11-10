@@ -1,0 +1,67 @@
+import { Alert, Card, CardContent, List, ListItem, ListItemText, Stack, Typography } from "@mui/material";
+import { useQuery } from "@tanstack/react-query";
+import { Title, useTranslate } from "react-admin";
+import { InfoService, type AppInfo } from "./api/bindings";
+
+// Стартовый экран фазы 0: показывает, какие каталоги приложение нашло.
+// Заодно это живая проверка моста Go ↔ TypeScript.
+export const Dashboard = () => {
+  const translate = useTranslate();
+  const { data, error, isPending } = useQuery<AppInfo, Error>({
+    queryKey: ["app", "info"],
+    queryFn: () => InfoService.Info(),
+  });
+
+  return (
+    <Card sx={{ mt: 2 }}>
+      <Title title={translate("aim.dashboard.title")} />
+      <CardContent>
+        <Stack spacing={2}>
+          <div>
+            <Typography variant="h5" component="h1">
+              {translate("aim.dashboard.title")}
+            </Typography>
+            <Typography color="text.secondary">{translate("aim.dashboard.subtitle")}</Typography>
+          </div>
+          {isPending && <Typography>{translate("aim.dashboard.loading")}</Typography>}
+          {error && (
+            <Alert severity="error">{translate("aim.dashboard.error", { message: error.message })}</Alert>
+          )}
+          {data && <InfoList info={data} />}
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+};
+
+const InfoList = ({ info }: { info: AppInfo }) => {
+  const translate = useTranslate();
+  const profiles = info.claudeProfiles ?? [];
+  return (
+    <>
+      <Typography variant="body2" color="text.secondary">
+        {translate("aim.dashboard.version", { version: info.version })}
+      </Typography>
+      <List dense disablePadding>
+        <ListItem disableGutters>
+          <ListItemText
+            primary={translate("aim.dashboard.sections.claude")}
+            secondary={
+              profiles.length > 0 ? profiles.join("\n") : translate("aim.dashboard.noClaudeProfiles")
+            }
+            slotProps={{ secondary: { sx: { whiteSpace: "pre-line" } } }}
+          />
+        </ListItem>
+        <PathItem label={translate("aim.dashboard.sections.codex")} path={info.codexHome} />
+        <PathItem label={translate("aim.dashboard.sections.config")} path={info.configDir} />
+        <PathItem label={translate("aim.dashboard.sections.data")} path={info.dataDir} />
+      </List>
+    </>
+  );
+};
+
+const PathItem = ({ label, path }: { label: string; path: string }) => (
+  <ListItem disableGutters>
+    <ListItemText primary={label} secondary={path} />
+  </ListItem>
+);

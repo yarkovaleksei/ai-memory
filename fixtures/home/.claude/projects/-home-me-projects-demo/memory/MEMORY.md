@@ -1,0 +1,5 @@
+- [Пакеты только через yarn](prefer-yarn.md) — npm не использовать
+- [Как выпускается релиз](release-flow.md) — теги и changelog
+- [Трекер задач](tracker-link.md) — где искать задачи проекта
+- [Сломанный frontmatter](broken-frontmatter.md) — кривой YAML
+- [Пропавший факт](missing-fact.md) — строка индекса без файла

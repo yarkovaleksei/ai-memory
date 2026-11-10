@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "0.0.1"
+	},
+	"info": {
+		"0409": {
+			"ProductVersion": "0.0.1",
+			"CompanyName": "yarkovaleksei",
+			"FileDescription": "Просмотр и правка памяти Claude Code и Codex",
+			"LegalCopyright": "© 2026 yarkovaleksei, MIT",
+			"ProductName": "ai-memory",
+			"Comments": "ai-memory"
+		}
+	}
+}

@@ -1,0 +1,130 @@
+version: '3'
+
+# Задачи ai-memory. Запуск: `wails3 task <имя>` (или `task <имя>`, если Task установлен отдельно).
+# Платформенные задачи сборки и упаковки сгенерированы Wails и лежат в build/.
+
+vars:
+  APP_NAME: "ai-memory"
+  BIN_DIR: "bin"
+  # Фронтенд ставится и собирается только через yarn 4 (ADR-006).
+  PACKAGE_MANAGER: "yarn"
+  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  # Целевая ОС для build/package/run. По умолчанию — текущая, переопределяется GOOS.
+  GOOS: '{{.GOOS | default OS}}'
+
+includes:
+  common: ./build/Taskfile.yml
+  windows: ./build/windows/Taskfile.yml
+  darwin: ./build/darwin/Taskfile.yml
+  linux: ./build/linux/Taskfile.yml
+
+tasks:
+  build:
+    summary: Собрать приложение для текущей ОС
+    cmds:
+      - task: "{{.GOOS}}:build"
+
+  package:
+    summary: Собрать установочный пакет для текущей ОС
+    cmds:
+      - task: "{{.GOOS}}:package"
+
+  run:
+    summary: Запустить собранное приложение
+    cmds:
+      - task: "{{.GOOS}}:run"
+
+  dev:
+    summary: Окно в режиме разработки на фикстурах; REAL=true — на настоящей памяти
+    vars:
+      FX: "{{.ROOT_DIR}}/fixtures/home"
+      LIST_SEP: '{{if eq OS "windows"}};{{else}}:{{end}}'
+    # AGENTS.md: разработка по умолчанию идёт на фикстурах. Пустые значения при REAL=true
+    # означают «переменная не задана», и приложение ищет память по обычным путям.
+    env:
+      AI_MEMORY_CLAUDE_DIRS: '{{if ne .REAL "true"}}{{.FX}}/.claude{{.LIST_SEP}}{{.FX}}/.claude-work{{end}}'
+      AI_MEMORY_CODEX_HOME: '{{if ne .REAL "true"}}{{.FX}}/.codex{{end}}'
+      AI_MEMORY_DATA_DIR: '{{if ne .REAL "true"}}{{.ROOT_DIR}}/.task/ai-memory-data{{end}}'
+      AI_MEMORY_CONFIG_DIR: '{{if ne .REAL "true"}}{{.ROOT_DIR}}/.task/ai-memory-config{{end}}'
+    cmds:
+      - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
+
+  bindings:
+    summary: Перегенерировать TypeScript-привязки к Go-сервисам в frontend/bindings
+    cmds:
+      - task: common:generate:bindings
+
+  deps:
+    summary: Установить зависимости фронтенда по yarn.lock без изменений
+    dir: frontend
+    cmds:
+      - yarn install --immutable
+
+  # Встраиваемая сборка фронтенда нужна go vet и go test для пакета main (//go:embed frontend/dist).
+  frontend:dist:
+    internal: true
+    cmds:
+      - task: common:build:frontend
+        vars:
+          DEV: "true"
+
+  test:go:
+    summary: Тесты ядра на Go (без окна и без собранного фронтенда)
+    # cmd/ai-memory-mcp появится в фазе 5 — тогда добавить ./cmd/... сюда.
+    cmds:
+      - go test ./internal/...
+
+  test:frontend:
+    summary: Тесты фронтенда (Vitest)
+    dir: frontend
+    cmds:
+      - yarn test
+
+  test:
+    summary: Все тесты
+    cmds:
+      - task: test:go
+      - task: test:frontend
+
+  lint:go:
+    summary: gofmt, go vet и staticcheck
+    deps: [frontend:dist]
+    cmds:
+      - cmd: |
+          unformatted=$(gofmt -l $(git ls-files --cached --others --exclude-standard '*.go'))
+          if [ -n "$unformatted" ]; then echo "Не отформатировано gofmt:"; echo "$unformatted"; exit 1; fi
+      - go vet ./...
+      - go tool staticcheck ./...
+
+  lint:frontend:
+    summary: ESLint и Prettier
+    dir: frontend
+    cmds:
+      - yarn lint
+      - yarn format:check
+
+  lint:
+    summary: Все линтеры
+    cmds:
+      - task: lint:go
+      - task: lint:frontend
+
+  typecheck:
+    summary: Проверка типов фронтенда
+    dir: frontend
+    cmds:
+      - yarn typecheck
+
+  fmt:
+    summary: Отформатировать Go и фронтенд
+    cmds:
+      - gofmt -w $(git ls-files --cached --others --exclude-standard '*.go')
+      - cd frontend && yarn format
+
+  check:
+    summary: Все проверки перед коммитом — тесты, линтеры, типы
+    cmds:
+      - task: deps
+      - task: test
+      - task: typecheck
+      - task: lint

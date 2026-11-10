@@ -64,17 +64,26 @@ ai-memory — десктоп-приложение (Go + Wails v3, react-admin) �
 
 ## Команды
 
-Каркаса пока нет, точные команды появятся в фазе 0. Планируемые:
+Все задачи — в `Taskfile.yml`, запуск через `wails3 task <имя>` из корня репозитория. Нужны Go 1.26, Node 24 с corepack (yarn 4.18.1 подтянется сам) и `wails3` v3.0.0 (`go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0`); на Linux — GTK 4 и WebKitGTK 6.0 (`wails3 doctor` покажет, чего не хватает).
 
 ```bash
-wails3 dev               # окно в режиме разработки с горячей перезагрузкой
-wails3 task check        # все проверки: тесты, линт, типы
-wails3 task test         # go test ./... и Vitest
+wails3 task dev          # окно в режиме разработки на фикстурах
+wails3 task dev REAL=true  # то же на настоящей памяти — только для приёмки
+wails3 task check        # всё перед коммитом: yarn install --immutable, тесты, типы, линтеры
+wails3 task test         # go test ./internal/... и Vitest
 wails3 task lint         # gofmt, go vet, staticcheck, ESLint, Prettier
-wails3 task build        # сборка бинаря
+wails3 task typecheck    # tsc --noEmit
+wails3 task fmt          # отформатировать Go и фронтенд
+wails3 task bindings     # перегенерировать frontend/bindings после изменения сервисов в internal/app
+wails3 task build        # собрать бинарь в bin/
 ```
 
-Перед коммитом должна проходить `wails3 task check`.
+- Перед коммитом должна проходить `wails3 task check`.
+- `lint` сначала собирает фронтенд: пакету `main` для `go vet` нужен `frontend/dist` (`//go:embed`).
+- `frontend/bindings` коммитится. Поменял сервис в `internal/app` — перегенерируй привязки в том же коммите; CI проверяет, что они совпадают с Go-кодом.
+- TypeScript закреплён на 6.0: `typescript-eslint` пока не поддерживает 7.x. Обновлять вместе.
+- `Route` и прочее из роутера импортируй из `react-router-dom`, как сам react-admin: иначе в тестах получаются два экземпляра роутера.
+- yarn не ставит версии моложе 7 дней (`npmMinimalAgeGate` в `frontend/.yarnrc.yml`).
 
 ## Git
 

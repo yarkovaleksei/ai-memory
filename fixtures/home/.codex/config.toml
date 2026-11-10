@@ -1,0 +1,7 @@
+# Фикстура: только то, что читает ai-memory.
+[features]
+memories = true
+
+[memories]
+generate_memories = true
+use_memories = true

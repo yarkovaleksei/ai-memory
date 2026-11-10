@@ -1,0 +1,52 @@
+# Проверки на трёх системах (ADR-009): тесты, линтеры, типы.
+# Заработает после публикации репозитория на GitHub; до этого проверяется только Linux локально.
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: yarn через corepack
+        run: corepack enable
+
+      - name: Системные библиотеки Wails (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+
+      - name: wails3
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
+
+      - name: Проверки
+        run: wails3 task check
+
+      - name: Привязки совпадают с Go-кодом
+        run: |
+          wails3 task bindings
+          git diff --exit-code -- frontend/bindings
