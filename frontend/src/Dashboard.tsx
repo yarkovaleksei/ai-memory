@@ -1,10 +1,11 @@
 import { Alert, Card, CardContent, List, ListItem, ListItemText, Stack, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
-import { Title, useTranslate } from "react-admin";
-import { InfoService, type AppInfo } from "./api/bindings";
+import { Title, useGetList, useTranslate } from "react-admin";
+import { InfoService, type AppInfo, type Source } from "./api/bindings";
+import { useWarningText } from "./items/text";
 
-// Стартовый экран фазы 0: показывает, какие каталоги приложение нашло.
-// Заодно это живая проверка моста Go ↔ TypeScript.
+// Экран «О программе»: версия, каталоги ai-memory и найденные хранилища памяти
+// с их предупреждениями (например, autoMemoryDirectory в настройках Claude).
 export const Dashboard = () => {
   const translate = useTranslate();
   const { data, error, isPending } = useQuery<AppInfo, Error>({
@@ -28,6 +29,7 @@ export const Dashboard = () => {
             <Alert severity="error">{translate("aim.dashboard.error", { message: error.message })}</Alert>
           )}
           {data && <InfoList info={data} />}
+          <SourceList />
         </Stack>
       </CardContent>
     </Card>
@@ -65,3 +67,34 @@ const PathItem = ({ label, path }: { label: string; path: string }) => (
     <ListItemText primary={label} secondary={path} />
   </ListItem>
 );
+
+const SourceList = () => {
+  const translate = useTranslate();
+  const warningText = useWarningText();
+  const { data = [] } = useGetList<Source & { id: string }>("sources", {
+    pagination: { page: 1, perPage: 1000 },
+  });
+  if (data.length === 0) return null;
+  return (
+    <div>
+      <Typography variant="subtitle1" component="h2">
+        {translate("aim.dashboard.sections.sources")}
+      </Typography>
+      <List dense disablePadding>
+        {data.map((s) => (
+          <ListItem key={s.id} disableGutters sx={{ display: "block" }}>
+            <ListItemText
+              primary={s.readOnly ? `${s.label} · ${translate("aim.dashboard.readOnlySource")}` : s.label}
+              secondary={s.root}
+            />
+            {(s.warnings ?? []).map((w, i) => (
+              <Alert key={`${w.code}-${i}`} severity="warning" sx={{ mt: 0.5 }}>
+                {warningText(w)}
+              </Alert>
+            ))}
+          </ListItem>
+        ))}
+      </List>
+    </div>
+  );
+};

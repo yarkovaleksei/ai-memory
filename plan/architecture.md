@@ -19,14 +19,15 @@
 └───────────────────────────────┬──────────────────────────────────┘
                                 │ привязки Wails (вызовы) и события
 ┌──────────────────────────── internal/app ────────────────────────┐
-│ сервисы Wails: Projects, Items, Plans, History                   │
+│ сервисы Wails: Info, Library (фаза 1), Plans, History            │
 │ тонкий слой: преобразование типов, события «индекс обновлён»     │
 └───────────────────────────────┬──────────────────────────────────┘
                                 │ обычные вызовы Go
 ┌──────────────────────────── ядро internal/ ──────────────────────┐
 │ model        Source, Project, MemoryItem                         │
 │ adapter/claude, adapter/codex   чтение и план записи             │
-│ index        SQLite FTS5          watch     fsnotify             │
+│ catalog      проекты из записей обоих агентов                    │
+│ index        SQLite FTS5      library  сборка индекса + fsnotify │
 │ writer       план → снимок → атомарная запись → коммит бэкапа    │
 │ backup       git-репозиторий бэкапов    llm   claude -p, codex exec │
 └───────────────────────────────┬──────────────────────────────────┘
@@ -46,8 +47,10 @@ internal/
   model/                типы ядра
   adapter/claude/       адаптер Claude Code
   adapter/codex/        адаптер Codex
+  markdown/             frontmatter, разделы, первые абзацы
+  catalog/              объединение записей в проекты
   index/                индекс и поиск
-  watch/                наблюдение за файлами
+  library/              адаптеры → каталог → индекс, наблюдение за файлами
   writer/               планы записи и их применение
   backup/               репозиторий бэкапов
   llm/                  вызовы CLI агентов (фаза 3)
@@ -73,22 +76,30 @@ Taskfile.yml            задачи сборки и проверок
 
 ## Модель данных
 
+Типы живут в `internal/model`; ниже — суть, полные определения в коде.
+
 ```go
 type Agent string // "claude" | "codex"
 
 // Source — одно хранилище памяти: профиль Claude или поколение памяти Codex.
 type Source struct {
-    Agent   Agent
-    Profile string // "claude:~/.claude", "claude:~/.claude-work", "codex:v2"
-    Root    string // абсолютный путь корня памяти
+    ID       string    // "claude:<корень>", "codex:v2", "codex:v1"
+    Agent    Agent
+    Label    string    // ".claude", "Codex v2"
+    Root     string    // абсолютный путь корня памяти
+    ReadOnly bool      // источник целиком только для чтения (Codex v1)
+    Warnings []Warning // проблемы уровня источника (autoMemoryDirectory, ошибка чтения)
 }
 
-// Project объединяет память одного проекта из всех хранилищ.
+// Project объединяет память одного проекта из всех хранилищ (internal/catalog).
 type Project struct {
-    ID      string  // нормализованный абсолютный путь или "global"
-    Path    *string // nil для глобальной памяти
-    Label   string
-    Sources []Source
+    ID        string // "global", "path:<путь>", "encoded:<имя каталога Claude>"
+    Path      string // пусто для глобальной памяти и нераспознанных
+    Label     string
+    Global, Temp, Resolved bool
+    Agents    []Agent
+    SourceIDs []string
+    ItemCount int
 }
 
 type ItemKind string
@@ -96,9 +107,10 @@ type ItemKind string
 const (
     KindClaudeFact     ItemKind = "claude-fact"           // файл факта Claude
     KindClaudeIndex    ItemKind = "claude-index"          // MEMORY.md
-    KindCodexSection   ItemKind = "codex-summary-section" // раздел memory_summary.md
+    KindCodexSection   ItemKind = "codex-summary-section" // раздел memory_summary.md (и MEMORY.md v1)
     KindCodexRollout   ItemKind = "codex-rollout"         // rollout_summaries/*.md
     KindCodexAdHocNote ItemKind = "codex-adhoc-note"      // extensions/ad_hoc/notes/*.md
+    KindCodexRaw       ItemKind = "codex-raw"             // raw_memories.md (v1)
 
     // Фаза 4 (ADR-010): инструкции и навыки.
     KindInstructions ItemKind = "instructions" // CLAUDE.md, AGENTS.md: глобальные и проектные
@@ -111,51 +123,55 @@ type WriteMode string
 const (
     WriteDirect  WriteMode = "direct"   // факты Claude, ad-hoc-заметки
     WriteViaNote WriteMode = "via-note" // сгенерированное Codex: только через новую заметку
-    WriteNone    WriteMode = "none"     // MEMORY.md: его ведёт writer
+    WriteNone    WriteMode = "none"     // MEMORY.md (его ведёт writer) и всё из Codex v1
 )
 
-type MemoryItem struct {
-    ID          string // стабильный: агент + относительный путь (+ якорь раздела)
-    Source      Source
+type Item struct {
+    ID          string // sha256(источник + относительный путь + якорь)[:12]: стабилен между пересборками
+    SourceID    string
     ProjectID   string
+    Agent       Agent
     Kind        ItemKind
     Type        string // user | feedback | project | reference, если есть
     Title       string
     Description string
-    Body        string     // Markdown без frontmatter
-    Frontmatter *yaml.Node // исходный узел: сохраняет порядок и неизвестные поля
-    Links       []string   // [[slug]] и ссылки на rollout_summaries
-    File        string     // абсолютный путь
-    Anchor      string     // для разделов внутри файла
+    Body        string         // Markdown без frontmatter
+    Frontmatter map[string]any // разобранный frontmatter или заголовок rollout-сводки
+    Links       []Link         // [[slug]], rollout_summaries/…, файлы из MEMORY.md; TargetID — ID цели, если нашлась
+    File        string         // абсолютный путь
+    Anchor      string         // заголовок раздела внутри файла
     ModTime     time.Time
-    Hash        string // для оптимистичной блокировки при записи
+    Hash        string // sha256 файла: оптимистичная блокировка при записи
     Write       WriteMode
     Warnings    []Warning // неожиданная структура, расхождение с индексом
 }
 
 // Warning — код и параметры, а не текст: текст собирает фронтенд по словарю (ADR-008).
 type Warning struct {
-    Code   string            // например "claude.index.missing-entry"
+    Code   string            // например "claude.index.missing-file"
     Params map[string]string // например {"file": "pr-base-branches.md"}
 }
 ```
 
-Во фронтенд `MemoryItem` уходит через DTO в `internal/app`: без `yaml.Node`, frontmatter — уже разобранным объектом.
+`Frontmatter` в модели — только для показа. Writer фазы 2 перечитывает файл и правит frontmatter через `yaml.Node`, чтобы сохранить порядок ключей и неизвестные поля. Во фронтенд `Item` уходит как есть, в списке — без `Body` и со сниппетом совпадения.
 
 ## Адаптеры
 
-У каждого адаптера одинаковый контракт:
+У каждого адаптера одинаковый контракт (`internal/adapter`):
 
 ```go
 type Adapter interface {
-    Discover(ctx context.Context) ([]Source, error)                      // найти корни
-    Scan(ctx context.Context, src Source, emit func(MemoryItem)) error   // прочитать всё
-    PlanWrite(ctx context.Context, op WriteOp) (WritePlan, error)        // что изменится, без записи
+    Discover(ctx context.Context) ([]model.Source, error)             // найти корни
+    Scan(ctx context.Context, src model.Source) ([]model.Item, error) // прочитать всё
+    WatchDirs(src model.Source) []string                              // за какими каталогами следить
+    // Фаза 2: PlanWrite(ctx, op WriteOp) (WritePlan, error) — что изменится, без записи
 }
 ```
 
 - **Claude.** Обходит профили, парсит frontmatter (терпимо к вариантам), восстанавливает путь проекта по `cwd` из jsonl, сверяет индекс `MEMORY.md` с файлами и записывает расхождения в `Warnings` (факт без строки в индексе, строка без файла).
 - **Codex.** Читает активное поколение (по умолчанию v2, v1 — опционально, только чтение), режет `memory_summary.md` на разделы, читает заголовки `rollout_summaries`, перечисляет ad-hoc-заметки. SQLite Codex открывает только на чтение и только при необходимости (счётчики `usage_count`, `last_usage`).
+
+`internal/library` связывает адаптеры, `catalog` и `index`: пересобирает индекс целиком при запуске и после изменений файлов (пауза 400 мс после последнего события `fsnotify`), набор наблюдаемых каталогов обновляет после каждой пересборки.
 
 ## Запись
 
@@ -179,7 +195,9 @@ type Adapter interface {
 ## Индекс и поиск
 
 - SQLite в `index.db` в каталоге данных, таблица записей и FTS5 по заголовку, описанию и телу.
-- Пересборка с нуля при запуске и инкрементально по событиям `fsnotify`. После обновления сервис шлёт событие Wails, и интерфейс перечитывает список.
+- Пересборка с нуля при запуске и после событий `fsnotify` (одной транзакцией: читатель видит старое или новое состояние). После пересборки сервис шлёт событие Wails `index:updated`, и интерфейс перечитывает данные.
+- Сортировка по названию — по отдельной колонке `sort_title` (нижний регистр, «ё» как «е»): `NOCASE` в SQLite понимает только латиницу.
+- Записи временных проектов в общий список и поиск не попадают, пока не включён фильтр «Показать временные» или не выбран сам временный проект.
 - Стандартный токенизатор не знает русских словоформ, поэтому в фазе 1 поиск идёт по префиксам (`ветк*`); стемминг — позже, если понадобится.
 - `remove_diacritics` в FTS5 работает только для латиницы: «ё» и «е» для него разные буквы. Индекс сам приводит «ё» к «е» и в индексируемом тексте, и в запросе. Проверено тестом `internal/index/fts5_test.go` на `modernc.org/sqlite`.
 - Поиск дублей ([фаза 3](phases/03-cross-agent.md)): сначала дешёвые кандидаты (FTS и сходство по n-граммам), затем по запросу пользователя — LLM-сравнение.

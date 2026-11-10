@@ -7,11 +7,13 @@ package main
 import (
 	"embed"
 	"log"
+	"log/slog"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/yarkovaleksei/ai-memory/internal/app"
 	"github.com/yarkovaleksei/ai-memory/internal/config"
+	"github.com/yarkovaleksei/ai-memory/internal/library"
 )
 
 // version подменяется при сборке релиза через -ldflags "-X main.version=…".
@@ -25,9 +27,21 @@ var version = "0.0.1-dev"
 var assets embed.FS
 
 func main() {
-	cfg, err := config.Load(config.FromEnvironment())
+	env := config.FromEnvironment()
+	cfg, err := config.Load(env)
 	if err != nil {
 		log.Fatalf("не удалось определить каталоги ai-memory: %v", err)
+	}
+	settings, err := config.ReadSettings(cfg.ConfigDir)
+	if err != nil {
+		// Испорченный config.toml не должен мешать открыть память: работаем на умолчаниях.
+		slog.Warn("настройки не прочитаны, используются умолчания", "error", err)
+	}
+	cfg = cfg.Apply(env, settings)
+
+	lib, err := library.New(cfg, slog.Default())
+	if err != nil {
+		log.Fatalf("не удалось открыть индекс: %v", err)
 	}
 
 	wailsApp := application.New(application.Options{
@@ -35,6 +49,7 @@ func main() {
 		Description: "Просмотр и правка памяти Claude Code и Codex",
 		Services: []application.Service{
 			application.NewService(app.NewInfoService(version, cfg)),
+			application.NewService(app.NewLibraryService(lib, slog.Default())),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

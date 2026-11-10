@@ -44,6 +44,8 @@ type Config struct {
 	ClaudeProfiles []string
 	// CodexHome — корень Codex.
 	CodexHome string
+	// ShowCodexV1 — показывать заброшенное поколение памяти Codex v1 (только чтение).
+	ShowCodexV1 bool
 }
 
 // ErrNoHome возвращается, когда домашний каталог неизвестен и пути не из чего строить.
@@ -121,7 +123,7 @@ func defaultDataDir(env Env) (string, error) {
 }
 
 // claudeProfiles: явный список из EnvClaudeDirs, иначе ~/.claude и CLAUDE_CONFIG_DIR.
-// Дополнительные профили из настроек приложения добавляются позже (фаза 1).
+// Дополнительные профили из config.toml добавляет Config.Apply.
 func claudeProfiles(env Env) []string {
 	var raw []string
 	if v := env.Getenv(EnvClaudeDirs); v != "" {
@@ -132,7 +134,11 @@ func claudeProfiles(env Env) []string {
 			raw = append(raw, v)
 		}
 	}
+	return dedupeProfiles(env, raw)
+}
 
+// dedupeProfiles приводит пути к абсолютным и убирает повторы с учётом регистра ОС.
+func dedupeProfiles(env Env, raw []string) []string {
 	seen := make(map[string]bool, len(raw))
 	out := make([]string, 0, len(raw))
 	for _, p := range raw {

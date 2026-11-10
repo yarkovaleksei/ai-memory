@@ -1,13 +1,26 @@
-import { Admin, CustomRoutes } from "react-admin";
+import MemoryIcon from "@mui/icons-material/Psychology";
+import { Admin, CustomRoutes, defaultDarkTheme, defaultLightTheme, Resource } from "react-admin";
 import { Route } from "react-router-dom";
 import { Dashboard } from "./Dashboard";
 import { dataProvider } from "./dataProvider";
 import { i18nProvider } from "./i18n";
+import { ItemList } from "./items/ItemList";
+import { Layout } from "./layout/Layout";
 
-// Ресурсов памяти пока нет (фаза 1). Без ресурсов и маршрутов react-admin показывает
-// свой экран-заглушку, поэтому сведения о приложении доступны и как отдельная страница.
+// Первый ресурс — главный экран. Светлая и тёмная темы штатные: переключатель
+// появляется в шапке сам, выбор react-admin запоминает в своём store.
 export const App = () => (
-  <Admin dashboard={Dashboard} dataProvider={dataProvider} i18nProvider={i18nProvider} disableTelemetry>
+  <Admin
+    dataProvider={dataProvider}
+    i18nProvider={i18nProvider}
+    layout={Layout}
+    theme={defaultLightTheme}
+    darkTheme={defaultDarkTheme}
+    disableTelemetry
+  >
+    <Resource name="items" list={ItemList} icon={MemoryIcon} options={{ label: "aim.menu.memory" }} />
+    <Resource name="projects" />
+    <Resource name="sources" />
     <CustomRoutes>
       <Route path="/about" element={<Dashboard />} />
     </CustomRoutes>

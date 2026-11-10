@@ -2,6 +2,8 @@ package config
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -142,5 +144,47 @@ func TestLoadWithoutHome(t *testing.T) {
 	_, err := Load(envOf("linux", "", nil))
 	if !errors.Is(err, ErrNoHome) {
 		t.Fatalf("ожидалась ErrNoHome, получено %v", err)
+	}
+}
+
+func TestApplySettings(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, SettingsFile), []byte(
+		"extra_claude_profiles = [\"~/.claude-work\", \"/home/me/.claude\"]\ncodex_home = \"~/codex\"\nshow_codex_v1 = true\n",
+	), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := ReadSettings(dir)
+	if err != nil {
+		t.Fatalf("ReadSettings: %v", err)
+	}
+
+	env := envOf("linux", "/home/me", nil)
+	cfg, err := Load(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := cfg.Apply(env, s)
+	want := []string{"/home/me/.claude", "/home/me/.claude-work"}
+	if !reflect.DeepEqual(got.ClaudeProfiles, want) {
+		t.Errorf("ClaudeProfiles = %v, want %v", got.ClaudeProfiles, want)
+	}
+	if got.CodexHome != "/home/me/codex" || !got.ShowCodexV1 {
+		t.Errorf("CodexHome = %q, ShowCodexV1 = %v", got.CodexHome, got.ShowCodexV1)
+	}
+
+	// Переменные ai-memory важнее файла настроек.
+	envFx := envOf("linux", "/home/me", map[string]string{EnvClaudeDirs: "/fx/.claude", EnvCodexHome: "/fx/.codex"})
+	cfgFx, _ := Load(envFx)
+	gotFx := cfgFx.Apply(envFx, s)
+	if !reflect.DeepEqual(gotFx.ClaudeProfiles, []string{"/fx/.claude"}) || gotFx.CodexHome != "/fx/.codex" {
+		t.Errorf("переменные окружения перекрыты файлом: %v %q", gotFx.ClaudeProfiles, gotFx.CodexHome)
+	}
+}
+
+func TestReadSettingsMissingFile(t *testing.T) {
+	s, err := ReadSettings(t.TempDir())
+	if err != nil || len(s.ExtraClaudeProfiles) != 0 {
+		t.Fatalf("ожидались пустые настройки без ошибки, получено %+v, %v", s, err)
 	}
 }
