@@ -44,8 +44,11 @@ type Config struct {
 	ClaudeProfiles []string
 	// CodexHome — корень Codex.
 	CodexHome string
-	// ShowCodexV1 — показывать заброшенное поколение памяти Codex v1 (только чтение).
-	ShowCodexV1 bool
+	// CodexGeneration — активное поколение памяти Codex («v1»/«v2»); пусто —
+	// ai-memory определяет его сам по настройкам и базам Codex.
+	CodexGeneration string
+	// ShowCodexInactive — показывать неактивное поколение памяти Codex (только чтение).
+	ShowCodexInactive bool
 }
 
 // ErrNoHome возвращается, когда домашний каталог неизвестен и пути не из чего строить.

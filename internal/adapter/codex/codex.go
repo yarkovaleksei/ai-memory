@@ -34,24 +34,39 @@ var notesDir = filepath.Join("extensions", "ad_hoc", "notes")
 
 // Adapter читает память Codex из CODEX_HOME.
 type Adapter struct {
-	Home      string // корень Codex
-	IncludeV1 bool   // показывать заброшенное поколение v1
+	Home         string     // корень Codex
+	Generation   Generation // активное поколение из настроек ai-memory; пусто — определить (DetectGeneration)
+	ShowInactive bool       // показывать неактивное поколение (только чтение)
 }
 
 var _ adapter.Adapter = Adapter{}
 
-// Discover возвращает активное поколение и, если включено, v1.
+// Active — поколение, в которое Codex сейчас пишет память, и причина выбора.
+func (a Adapter) Active(ctx context.Context) (Generation, string) {
+	if a.Generation != "" {
+		return a.Generation, ReasonSettings
+	}
+	return DetectGeneration(ctx, filepath.FromSlash(a.Home))
+}
+
+// Discover возвращает активное поколение и, если включено, неактивное — только
+// для чтения: заметку в нём Codex не прочитает никогда (Q3).
 func (a Adapter) Discover(ctx context.Context) ([]model.Source, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	home := filepath.FromSlash(a.Home)
-	var out []model.Source
-	if root := filepath.Join(home, dirV2); isDir(root) {
-		out = append(out, model.Source{ID: "codex:" + root, Agent: model.AgentCodex, Label: "Codex v2", Root: root})
+	active, _ := a.Active(ctx)
+	inactive := GenV1
+	if active == GenV1 {
+		inactive = GenV2
 	}
-	if root := filepath.Join(home, dirV1); a.IncludeV1 && isDir(root) {
-		out = append(out, model.Source{ID: "codex:" + root, Agent: model.AgentCodex, Label: "Codex v1", Root: root, ReadOnly: true})
+	var out []model.Source
+	if root := filepath.Join(home, active.Dir()); isDir(root) {
+		out = append(out, model.Source{ID: "codex:" + root, Agent: model.AgentCodex, Label: "Codex " + string(active), Root: root})
+	}
+	if root := filepath.Join(home, inactive.Dir()); a.ShowInactive && isDir(root) {
+		out = append(out, model.Source{ID: "codex:" + root, Agent: model.AgentCodex, Label: "Codex " + string(inactive), Root: root, ReadOnly: true})
 	}
 	return out, nil
 }
@@ -85,7 +100,7 @@ func (a Adapter) Scan(ctx context.Context, src model.Source) ([]model.Item, erro
 
 	var items []model.Item
 	items = append(items, s.summary(byRel)...)
-	if src.ReadOnly {
+	if filepath.Base(src.Root) == dirV1 { // форматные отличия v1, а не признак «только чтение»
 		items = append(items, s.memoryV1(byRel)...)
 		items = append(items, s.raw()...)
 	}

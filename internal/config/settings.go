@@ -17,11 +17,13 @@ const SettingsFile = "config.toml"
 //
 //	extra_claude_profiles = ["~/.claude-work"]
 //	codex_home = "/opt/codex"
-//	show_codex_v1 = true
+//	codex_generation = "v2"
+//	show_codex_inactive = true
 type Settings struct {
 	ExtraClaudeProfiles []string `toml:"extra_claude_profiles"`
 	CodexHome           string   `toml:"codex_home"`
-	ShowCodexV1         bool     `toml:"show_codex_v1"`
+	CodexGeneration     string   `toml:"codex_generation"`
+	ShowCodexInactive   bool     `toml:"show_codex_inactive"`
 }
 
 // ReadSettings читает config.toml из каталога настроек. Отсутствие файла — не ошибка.
@@ -50,7 +52,10 @@ func (c Config) Apply(env Env, s Settings) Config {
 	}
 	out := c
 	out.ClaudeProfiles = append([]string(nil), c.ClaudeProfiles...)
-	out.ShowCodexV1 = s.ShowCodexV1
+	out.ShowCodexInactive = s.ShowCodexInactive
+	if s.CodexGeneration == "v1" || s.CodexGeneration == "v2" {
+		out.CodexGeneration = s.CodexGeneration
+	}
 
 	if env.Getenv(EnvClaudeDirs) == "" && len(s.ExtraClaudeProfiles) > 0 {
 		all := append(append([]string(nil), c.ClaudeProfiles...), s.ExtraClaudeProfiles...)

@@ -3,5 +3,7 @@
 memories = true
 
 [memories]
+# Активное поколение задано явно: в фикстурах нет баз Codex, по которым его можно определить.
+version = "v2"
 generate_memories = true
 use_memories = true

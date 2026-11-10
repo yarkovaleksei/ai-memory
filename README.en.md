@@ -34,8 +34,12 @@ extra_claude_profiles = ["~/.claude-work", "~/.claude-personal"]
 # Codex root, if it is not ~/.codex and CODEX_HOME is not set.
 # codex_home = "/opt/codex"
 
-# Show the old Codex memory generation (memories/, read-only).
-# show_codex_v1 = true
+# The Codex memory generation it currently writes to: "v1" (memories/) or "v2" (memories_v2/).
+# Usually not needed: ai-memory detects it from Codex's settings and databases.
+# codex_generation = "v2"
+
+# Also show the inactive generation (read-only: Codex no longer reads it).
+# show_codex_inactive = true
 ```
 
 A directory listed twice, including through a symlink, is read once. Settings are read at startup; restart the app after editing them.

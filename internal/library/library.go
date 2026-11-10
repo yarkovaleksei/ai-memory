@@ -59,7 +59,7 @@ func New(cfg config.Config, log *slog.Logger) (*Library, error) {
 	return &Library{
 		adapters: []adapter.Adapter{
 			claude.Adapter{Profiles: cfg.ClaudeProfiles},
-			codex.Adapter{Home: cfg.CodexHome, IncludeV1: cfg.ShowCodexV1},
+			codex.Adapter{Home: cfg.CodexHome, Generation: codex.Parse(cfg.CodexGeneration), ShowInactive: cfg.ShowCodexInactive},
 		},
 		ix:  ix,
 		log: log,

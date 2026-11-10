@@ -41,6 +41,7 @@ export AI_MEMORY_DATA_DIR="$PWD/.task/ai-memory-data"
 |---|---|
 | `.codex/memories_v2/` | Активное поколение: сводка, две rollout-сводки (проект и временный каталог), ad-hoc-заметка |
 | `.codex/memories_v2.lock` | Файл блокировки (пустой) |
+| `.codex/config.toml` | `[memories] version = "v2"`: активное поколение задано явно, баз Codex в фикстурах нет (Q3) |
 | `.codex/memories/` | Заброшенное поколение v1: `MEMORY.md`, `raw_memories.md`, навык из памяти, старая заметка |
 | `.codex/skills/`, `.codex/AGENTS.md` | Навык и глобальные инструкции (фаза 4) |
 

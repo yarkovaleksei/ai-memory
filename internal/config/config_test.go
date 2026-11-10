@@ -150,7 +150,7 @@ func TestLoadWithoutHome(t *testing.T) {
 func TestApplySettings(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, SettingsFile), []byte(
-		"extra_claude_profiles = [\"~/.claude-work\", \"/home/me/.claude\"]\ncodex_home = \"~/codex\"\nshow_codex_v1 = true\n",
+		"extra_claude_profiles = [\"~/.claude-work\", \"/home/me/.claude\"]\ncodex_home = \"~/codex\"\nshow_codex_inactive = true\ncodex_generation = \"v2\"\n",
 	), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -169,8 +169,8 @@ func TestApplySettings(t *testing.T) {
 	if !reflect.DeepEqual(got.ClaudeProfiles, want) {
 		t.Errorf("ClaudeProfiles = %v, want %v", got.ClaudeProfiles, want)
 	}
-	if got.CodexHome != "/home/me/codex" || !got.ShowCodexV1 {
-		t.Errorf("CodexHome = %q, ShowCodexV1 = %v", got.CodexHome, got.ShowCodexV1)
+	if got.CodexHome != "/home/me/codex" || !got.ShowCodexInactive || got.CodexGeneration != "v2" {
+		t.Errorf("CodexHome = %q, ShowCodexInactive = %v, CodexGeneration = %q", got.CodexHome, got.ShowCodexInactive, got.CodexGeneration)
 	}
 
 	// Переменные ai-memory важнее файла настроек.

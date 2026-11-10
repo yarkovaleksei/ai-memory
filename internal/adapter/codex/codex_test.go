@@ -14,7 +14,7 @@ func scan(t *testing.T, includeV1 bool) map[string][]model.Item {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := Adapter{Home: home, IncludeV1: includeV1}
+	a := Adapter{Home: home, ShowInactive: includeV1}
 	srcs, err := a.Discover(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -44,7 +44,7 @@ func TestDiscoverV1OnlyOnRequest(t *testing.T) {
 		t.Errorf("по умолчанию только v2, получено %v", keys(got))
 	}
 	if got := scan(t, true); len(got) != 2 || got["Codex v1"] == nil {
-		t.Errorf("с IncludeV1 нужны v2 и v1, получено %v", keys(got))
+		t.Errorf("с ShowInactive нужны v2 и v1, получено %v", keys(got))
 	}
 }
 
