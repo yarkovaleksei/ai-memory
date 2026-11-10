@@ -56,14 +56,22 @@ func New(cfg config.Config, log *slog.Logger) (*Library, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Library{
-		adapters: []adapter.Adapter{
-			claude.Adapter{Profiles: cfg.ClaudeProfiles},
-			codex.Adapter{Home: cfg.CodexHome, Generation: codex.Parse(cfg.CodexGeneration), ShowInactive: cfg.ShowCodexInactive},
-		},
-		ix:  ix,
-		log: log,
-	}, nil
+	return &Library{adapters: adaptersFor(cfg), ix: ix, log: log}, nil
+}
+
+func adaptersFor(cfg config.Config) []adapter.Adapter {
+	return []adapter.Adapter{
+		claude.Adapter{Profiles: cfg.ClaudeProfiles},
+		codex.Adapter{Home: cfg.CodexHome, Generation: codex.Parse(cfg.CodexGeneration), ShowInactive: cfg.ShowCodexInactive},
+	}
+}
+
+// Configure меняет корни памяти после правки настроек; подействует со
+// следующей пересборки. Наблюдатель возьмёт новые каталоги после неё же.
+func (l *Library) Configure(cfg config.Config) {
+	l.rebuildMu.Lock()
+	defer l.rebuildMu.Unlock()
+	l.adapters = adaptersFor(cfg)
 }
 
 // Close закрывает индекс.
@@ -123,6 +131,14 @@ func (l *Library) Search(ctx context.Context, q index.Query) (index.Page, error)
 }
 
 func (l *Library) Get(ctx context.Context, id string) (model.Item, error) { return l.ix.Get(ctx, id) }
+
+// All — все записи целиком.
+func (l *Library) All(ctx context.Context) ([]model.Item, error) { return l.ix.All(ctx) }
+
+// ByFile — запись файла целиком (без раздела).
+func (l *Library) ByFile(ctx context.Context, file string) (model.Item, error) {
+	return l.ix.ByFile(ctx, file)
+}
 
 func (l *Library) GetMany(ctx context.Context, ids []string) ([]model.Item, error) {
 	return l.ix.GetMany(ctx, ids)

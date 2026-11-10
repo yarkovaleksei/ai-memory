@@ -24,7 +24,7 @@
 ### Сервисы Wails (`internal/app`)
 - [x] `PlansService` строит план без записи — отдельный метод на операцию (`CreateFact`, `UpdateFact`, `UpdateSource`, `DeleteFacts`, `FixIndex`, `CreateNote`, `ForgetNote`) — и держит его в памяти по ID; `Draft(itemID)` отдаёт файл и его хэш для редактора, и план строится от этого хэша, а не от свежего индекса.
 - [x] `PlansService.Apply(planID)` — применить подтверждённый план; план одноразовый. `Discard(planID)` — забыть неподтверждённый. `Status()` — включена ли запись (без git — нет) и состояние консолидации Codex.
-- [x] `HistoryService.List()`, `HistoryService.Revert(commit)` — история и откат (откат тоже возвращает план; откат создания заметки Codex отклоняется сразу).
+- [x] `HistoryService.List()`, `HistoryService.Revert(commit)` — история и откат (откат тоже возвращает план; откат создания заметки Codex отклоняется сразу; с фазы 3 — переписывает заметку на отмену, [ADR-014](../decisions.md#adr-014-отмена-заметки-codex--переписать-её-текст-на-отмену)).
 
 ### Интерфейс (`frontend/`)
 - [x] Редактор Markdown (CodeMirror 6, [ADR-013](../decisions.md#adr-013-редактор-и-diff--codemirror-6-без-обёртки-для-react)) и форма frontmatter для фактов Claude; вкладка «Исходник» правит файл целиком (так чинится сломанный frontmatter).

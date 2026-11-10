@@ -27,7 +27,7 @@ ai-memory не заводит собственной памяти, а работ
 
 ## Настройки
 
-Без настроек ai-memory читает профиль Claude Code `~/.claude` (и каталог из `CLAUDE_CONFIG_DIR`, если переменная задана) и Codex из `~/.codex` (или `CODEX_HOME`). Если профилей Claude несколько, например рабочий и личный в разных каталогах, перечислите их в файле `config.toml` в каталоге настроек: на Linux `~/.config/ai-memory/`, на macOS `~/Library/Application Support/ai-memory/`, на Windows `%AppData%\ai-memory\`.
+Без настроек ai-memory читает профиль Claude Code `~/.claude` (и каталог из `CLAUDE_CONFIG_DIR`, если переменная задана) и Codex из `~/.codex` (или `CODEX_HOME`). Если профилей Claude несколько, например рабочий и личный в разных каталогах, добавьте их на экране «Настройки»: каталог выбирается в системном диалоге, память перечитывается сразу. Экран пишет файл `config.toml` в каталоге настроек (на Linux `~/.config/ai-memory/`, на macOS `~/Library/Application Support/ai-memory/`, на Windows `%AppData%\ai-memory\`), его можно править и руками:
 
 ```toml
 # Дополнительные профили Claude Code. Имена — любые, ~ раскрывается в домашний каталог.

@@ -14,6 +14,19 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as writer$0 from "../writer/models.js";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
+/**
+ * Links — переносы, в которых участвовала запись: показать пару «источник —
+ * копия» и предупредить о повторном переносе. Отменённые откатом переносы не
+ * показываются.
+ */
+export function Links(itemID: string): $CancellablePromise<$models.TransferLink[] | null> {
+    return $Call.ByID(3698122065, itemID);
+}
+
 /**
  * List возвращает операции, новые первыми.
  */
@@ -23,7 +36,9 @@ export function List(): $CancellablePromise<writer$0.Entry[] | null> {
 
 /**
  * Revert строит план отката операции; применяется он через PlansService.Apply.
+ * cancelMessage — текст отмены для заметок Codex, которые создала
+ * откатываемая операция (ADR-014); его даёт словарь интерфейса.
  */
-export function Revert(commit: string): $CancellablePromise<writer$0.Plan> {
-    return $Call.ByID(1040482022, commit);
+export function Revert(commit: string, cancelMessage: string): $CancellablePromise<writer$0.Plan> {
+    return $Call.ByID(1040482022, commit, cancelMessage);
 }

@@ -297,3 +297,41 @@ func TestReadFact(t *testing.T) {
 		t.Errorf("сломанный frontmatter правится только исходником: %+v %v", broken, err)
 	}
 }
+
+func TestPlanReplace(t *testing.T) {
+	f := newFixture(t)
+	other := MemoryDir(f.profile, "-home-me-projects-my-app-v2")
+	legacy := filepath.Join(other, "legacy-type.md")
+	legacyHash := model.ContentHash([]byte(mustRead(t, legacy)))
+	in := FactInput{Name: "prefer-yarn", Description: "Только yarn 4", Type: "feedback", Body: "Объединено."}
+	tests := []struct {
+		name    string
+		refs    []FactRef
+		changes int
+		code    string
+	}{
+		{"итог на месте одного из фактов, второй в другом проекте", []FactRef{
+			{File: filepath.Join(f.memDir, "prefer-yarn.md"), Hash: f.hash(t, "prefer-yarn.md")},
+			{File: legacy, Hash: legacyHash},
+		}, 4, ""}, // факт, удалённый факт, два индекса
+		{"имя занято файлом вне группы", []FactRef{{File: legacy, Hash: legacyHash}}, 0, "claude.fact.exists"},
+		{"устаревший хэш", []FactRef{{File: legacy, Hash: "x"}}, 0, "write.conflict"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := PlanReplace(f.memDir, in, tt.refs)
+			if failCode(err) != tt.code || len(p.Changes) != tt.changes {
+				t.Errorf("изменений %d, код %v", len(p.Changes), err)
+			}
+		})
+	}
+}
+
+func mustRead(t *testing.T, p string) string {
+	t.Helper()
+	data, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}

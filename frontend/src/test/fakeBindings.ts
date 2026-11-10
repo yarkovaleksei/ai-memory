@@ -226,18 +226,95 @@ export const plansService = {
   FixIndex: vi.fn(() => Promise.resolve(plan("claude.index.fix"))),
   CreateNote: vi.fn(() => Promise.resolve(plan("codex.note.create", { title: "x" }))),
   ForgetNote: vi.fn((title: string) => Promise.resolve(plan("codex.note.forget", { title }))),
+  Merge: vi.fn((req: { target: string }) =>
+    Promise.resolve(plan("merge", { count: "2", title: req.target })),
+  ),
+  TransferToClaude: vi.fn((_id: string, _src: string, _proj: string, fact: { name: string }) =>
+    Promise.resolve(plan("transfer.copy-to-claude", { name: fact.name })),
+  ),
+  TransferToCodex: vi.fn((_id: string, title: string) =>
+    Promise.resolve(plan("transfer.move-to-codex", { title })),
+  ),
   Apply: vi.fn((): Promise<unknown> => Promise.resolve({ commit: "fff0000", stats: {} })),
   Discard: vi.fn(() => Promise.resolve()),
 };
 
 export const historyService = {
   List: vi.fn(() => Promise.resolve(entries)),
+  Links: vi.fn((id: string) =>
+    Promise.resolve(
+      id === "i-yarn"
+        ? [
+            {
+              direction: "to",
+              move: false,
+              itemId: "i-note",
+              title: "Сборка демо",
+              agent: "codex",
+              time: "2026-02-03T04:05:06Z",
+              commit: "c0ffee1",
+            },
+          ]
+        : [],
+    ),
+  ),
   Revert: vi.fn((commit: string) => Promise.resolve(plan("revert", { commit, op: "claude.fact.update" }))),
 };
 
 export { rejectCode };
 
+export const settingsService = {
+  Get: vi.fn(() => Promise.resolve(settingsView(["~/.claude-personal"]))),
+  Save: vi.fn((st: { extraClaudeProfiles: string[] }) =>
+    Promise.resolve(settingsView(st.extraClaudeProfiles)),
+  ),
+  PickDirectory: vi.fn(() => Promise.resolve("/fx/home/.claude-work")),
+};
+
+function settingsView(extra: string[]) {
+  return {
+    settings: { extraClaudeProfiles: extra, codexHome: "", codexGeneration: "", showCodexInactive: false },
+    defaultClaudeProfiles: ["/fx/home/.claude"],
+    defaultCodexHome: "/fx/home/.codex",
+    claudeProfiles: ["/fx/home/.claude", ...extra],
+    codexHome: "/fx/home/.codex",
+    codexGeneration: "v2",
+    generationReason: "config",
+    lockedClaudeProfiles: false,
+    lockedCodexHome: false,
+    configFile: "/fx/cfg/config.toml",
+  };
+}
+
+// LLM: CLI агентов в тестах нет, ответы выдуманы.
+export const llmService = {
+  Agents: vi.fn((): Promise<string[]> => Promise.resolve(["claude", "codex"])),
+  MergeDraft: vi.fn((ids: string[]) =>
+    Promise.resolve({
+      title: "Менеджер пакетов",
+      description: "Чем ставить пакеты в демо",
+      body: "Ставить пакеты только через yarn 4.\n",
+      contradictions: [{ itemIds: ids.slice(0, 2), summary: "Разные версии yarn" }],
+    }),
+  ),
+  Contradictions: vi.fn(() =>
+    Promise.resolve({
+      groups: 2,
+      checked: 1,
+      contradictions: [
+        {
+          summary: "Разные базовые ветки релиза",
+          items: items.filter((it) => it.id === "i-yarn" || it.id === "i-note"),
+        },
+      ],
+    }),
+  ),
+};
+
 export const fakeBindings = () => ({
+  SettingsService: settingsService,
+  LLMService: llmService,
+  Agent: { AgentClaude: "claude", AgentCodex: "codex" },
   PlansService: plansService,
   HistoryService: historyService,
   InfoService: {
@@ -261,6 +338,15 @@ export const fakeBindings = () => ({
     GetItems: (ids: string[]) => Promise.resolve(items.filter((i) => ids.includes(i.id))),
     Projects: () => Promise.resolve(projects),
     Sources: () => Promise.resolve(sources),
+    Similar: vi.fn(() =>
+      Promise.resolve([
+        {
+          score: 0.471,
+          pairs: [{ a: "i-yarn", b: "i-note", score: 0.471 }],
+          items: items.filter((it) => it.id === "i-yarn" || it.id === "i-note"),
+        },
+      ]),
+    ),
     Rebuild: () => Promise.resolve({ sources: 1, projects: 3, items: 3, builtAt: "", duration: "5ms" }),
   },
   IndexUpdated: "index:updated",

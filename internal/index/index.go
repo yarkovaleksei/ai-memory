@@ -18,7 +18,7 @@ import (
 
 // schemaVersion меняется при любом изменении схемы: индекс — кэш, поэтому
 // при несовпадении он просто пересоздаётся.
-const schemaVersion = "2"
+const schemaVersion = "3"
 
 // Маркеры подсветки в сниппетах: управляющие символы не встречаются в тексте памяти.
 const (
@@ -90,9 +90,12 @@ func (ix *Index) migrate() error {
 			title TEXT NOT NULL,
 			sort_title TEXT NOT NULL,
 			mod_time INTEGER NOT NULL,
+			file TEXT NOT NULL,
+			anchor TEXT NOT NULL,
 			data TEXT NOT NULL
 		)`,
 		`CREATE INDEX items_project ON items(project_id)`,
+		`CREATE INDEX items_file ON items(file)`,
 		`CREATE VIRTUAL TABLE items_fts USING fts5(title, description, body, tokenize = 'unicode61 remove_diacritics 2')`,
 		`INSERT INTO meta(key, value) VALUES ('schema', '` + schemaVersion + `')`,
 	}
@@ -148,8 +151,8 @@ func (ix *Index) Replace(ctx context.Context, sources []model.Source, projects [
 			return fmt.Errorf("index: проект %s: %w", p.ID, err)
 		}
 	}
-	insItem, err := tx.PrepareContext(ctx, `INSERT INTO items(id, source_id, agent, kind, type, project_id, temp, warnings, title, sort_title, mod_time, data)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	insItem, err := tx.PrepareContext(ctx, `INSERT INTO items(id, source_id, agent, kind, type, project_id, temp, warnings, title, sort_title, mod_time, file, anchor, data)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -166,7 +169,7 @@ func (ix *Index) Replace(ctx context.Context, sources []model.Source, projects [
 			return fmt.Errorf("index: запись %s: %w", it.ID, err)
 		}
 		res, err := insItem.ExecContext(ctx, it.ID, it.SourceID, string(it.Agent), string(it.Kind), it.Type, it.ProjectID,
-			b2i(it.Project.Temp), b2i(len(it.Warnings) > 0), it.Title, SortKey(it.Title), it.ModTime.UnixMilli(), string(data))
+			b2i(it.Project.Temp), b2i(len(it.Warnings) > 0), it.Title, SortKey(it.Title), it.ModTime.UnixMilli(), it.File, it.Anchor, string(data))
 		if err != nil {
 			return fmt.Errorf("index: запись %s: %w", it.ID, err)
 		}

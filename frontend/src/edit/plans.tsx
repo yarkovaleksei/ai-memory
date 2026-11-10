@@ -150,7 +150,9 @@ const PlanDialog = ({ plan, busy, onCancel, onApply }: PlanDialogProps) => {
   const opText = useOpText();
   const hint = useConsolidationHint();
   const changes = useMemo(() => plan.changes ?? [], [plan]);
-  const touchesCodex = plan.op.code.startsWith("codex.") || plan.op.params?.op?.startsWith("codex.");
+  // Заметки Codex — единственное, что ai-memory пишет в Codex (ADR-002): по их
+  // каталогу видно, что изменение вступит только после консолидации.
+  const touchesCodex = changes.some((c) => /[\\/]ad_hoc[\\/]notes[\\/]/.test(c.path));
   return (
     <Dialog open onClose={busy ? undefined : onCancel} maxWidth="lg" fullWidth aria-labelledby="plan-title">
       <DialogTitle id="plan-title">{opText(plan.op)}</DialogTitle>

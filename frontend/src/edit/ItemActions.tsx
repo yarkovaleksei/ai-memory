@@ -6,6 +6,7 @@ import { useListContext, useTranslate } from "react-admin";
 import { PlansService, type Item } from "../api/bindings";
 import { FactEditor, type FactTarget } from "./FactEditor";
 import { NoteEditor, type NoteTarget } from "./NoteEditor";
+import { TransferDialog } from "./TransferDialog";
 import { useEditStatus, useRunPlan } from "./plans";
 
 // useWriteGate — запись выключена (нет git для бэкапов): кнопки видны, но
@@ -37,6 +38,7 @@ export const ItemActions = ({ item }: { item: Item }) => {
   const { disabled, reason } = useWriteGate();
   const [fact, setFact] = useState<FactTarget | null>(null);
   const [note, setNote] = useState<NoteTarget | null>(null);
+  const [transfer, setTransfer] = useState(false);
 
   const indexIssue = (item.warnings ?? []).some((w) => w.code.startsWith("claude.index."));
   const buttons: ReactNode[] = [];
@@ -66,6 +68,9 @@ export const ItemActions = ({ item }: { item: Item }) => {
     add("refine", "aim.actions.refine", () => setNote({ kind: "refine", title: item.title }));
     add("forget", "aim.actions.forget", () => setNote({ kind: "forget", title: item.title }), "error");
   }
+  if (item.kind !== "claude-index") {
+    add("transfer", "aim.actions.transfer", () => setTransfer(true));
+  }
   if (buttons.length === 0) return null;
 
   return (
@@ -77,6 +82,7 @@ export const ItemActions = ({ item }: { item: Item }) => {
       </Gate>
       {fact && <FactEditor target={fact} onClose={() => setFact(null)} />}
       {note && <NoteEditor target={note} onClose={() => setNote(null)} />}
+      {transfer && <TransferDialog item={item} onClose={() => setTransfer(false)} />}
     </>
   );
 };

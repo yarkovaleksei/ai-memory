@@ -82,10 +82,36 @@ export function ForgetNote(title: string, body: string): $CancellablePromise<wri
 }
 
 /**
+ * Merge строит план объединения: одна новая запись, факты Claude группы
+ * удаляются, для записей Codex пишутся заметки «забыть». Всё одним планом и
+ * одним коммитом бэкапа, и откатывается одной операцией (ADR-014).
+ */
+export function Merge(req: $models.MergeRequest): $CancellablePromise<writer$0.Plan> {
+    return $Call.ByID(736975136, req);
+}
+
+/**
  * Status сообщает, включена ли запись, и состояние консолидации Codex.
  */
 export function Status(): $CancellablePromise<$models.EditStatus> {
     return $Call.ByID(567656550);
+}
+
+/**
+ * TransferToClaude — факт Claude из записи любого агента: в другой проект или
+ * профиль Claude или из Codex. move — убрать исходную запись: факт Claude
+ * удаляется, для записи Codex пишется заметка «забыть» с текстом forgetTitle и
+ * forgetBody (их даёт словарь интерфейса).
+ */
+export function TransferToClaude(itemID: string, sourceID: string, projectID: string, $in: claude$0.FactInput, move: boolean, forgetTitle: string, forgetBody: string): $CancellablePromise<writer$0.Plan> {
+    return $Call.ByID(1395995688, itemID, sourceID, projectID, $in, move, forgetTitle, forgetBody);
+}
+
+/**
+ * TransferToCodex — заметка Codex из факта Claude. move — удалить факт.
+ */
+export function TransferToCodex(itemID: string, title: string, body: string, move: boolean): $CancellablePromise<writer$0.Plan> {
+    return $Call.ByID(2678693181, itemID, title, body, move);
 }
 
 /**

@@ -8,7 +8,7 @@ import (
 
 func TestInfoReturnsIndependentCopy(t *testing.T) {
 	cfg := config.Config{ClaudeProfiles: []string{"/fx/.claude"}}
-	svc := NewInfoService("1.2.3", cfg)
+	svc := NewInfoService("1.2.3", NewRuntime(cfg))
 
 	// Изменение исходного Config после создания сервиса не должно протекать внутрь.
 	cfg.ClaudeProfiles[0] = "/changed"

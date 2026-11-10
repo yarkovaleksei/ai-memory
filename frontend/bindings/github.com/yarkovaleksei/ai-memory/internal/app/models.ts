@@ -9,10 +9,16 @@ import * as claude$0 from "../adapter/claude/models.js";
 import * as codex$0 from "../adapter/codex/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as config$0 from "../config/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as library$0 from "../library/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as model$0 from "../model/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as similar$0 from "../similar/models.js";
 
 /**
  * AppInfo — сведения о приложении для экрана «О программе» и диагностики.
@@ -41,6 +47,25 @@ export interface CodexStatus {
     "generationReason": string;
     "consolidation": codex$0.Consolidation;
     "cooldownHours": number;
+}
+
+/**
+ * Contradiction — противоречие с записями целиком: интерфейс показывает их
+ * рядом без дополнительных запросов.
+ */
+export interface Contradiction {
+    "summary": string;
+    "items": model$0.Item[] | null;
+}
+
+/**
+ * ContradictionReport — итог проверки. Checked < Groups — не все группы
+ * поместились в один запрос: стоит сузить выбор (проект, порог).
+ */
+export interface ContradictionReport {
+    "groups": number;
+    "checked": number;
+    "contradictions": Contradiction[] | null;
 }
 
 /**
@@ -150,4 +175,115 @@ export interface ListItem {
      */
     "pending": boolean;
     "snippet": string;
+}
+
+/**
+ * MergeRequest — объединение группы записей в одну.
+ */
+export interface MergeRequest {
+    "itemIds": string[] | null;
+
+    /**
+     * куда пишется итог: claude — факт, codex — заметка
+     */
+    "target": model$0.Agent;
+
+    /**
+     * Итог в Claude.
+     */
+    "sourceId": string;
+    "projectId": string;
+    "fact": claude$0.FactInput;
+
+    /**
+     * Итог в Codex.
+     */
+    "title": string;
+    "body": string;
+
+    /**
+     * Заметки «забыть» для записей Codex группы: удалить их нельзя (ADR-002).
+     */
+    "forget": NoteText[] | null;
+}
+
+/**
+ * NoteText — заголовок и текст заметки, которые собирает интерфейс по словарю.
+ */
+export interface NoteText {
+    "itemId": string;
+    "title": string;
+    "body": string;
+}
+
+/**
+ * SettingsView — что показывает экран «Настройки».
+ */
+export interface SettingsView {
+    /**
+     * как в config.toml
+     */
+    "settings": config$0.Settings;
+
+    /**
+     * Профили и корень Codex по умолчанию — без файла настроек.
+     */
+    "defaultClaudeProfiles": string[] | null;
+    "defaultCodexHome": string;
+
+    /**
+     * Что действует сейчас, после применения файла.
+     */
+    "claudeProfiles": string[] | null;
+    "codexHome": string;
+    "codexGeneration": string;
+    "generationReason": string;
+
+    /**
+     * Перекрыто переменными окружения AI_MEMORY_*: файл это не меняет.
+     */
+    "lockedClaudeProfiles": boolean;
+    "lockedCodexHome": boolean;
+    "configFile": string;
+}
+
+/**
+ * SimilarGroup — группа кандидатов в дубли с записями целиком: интерфейс
+ * сравнивает их рядом без дополнительных запросов.
+ */
+export interface SimilarGroup {
+    "score": number;
+    "pairs": similar$0.Pair[] | null;
+    "items": model$0.Item[] | null;
+}
+
+/**
+ * SimilarQuery — фильтры экрана «Похожие».
+ */
+export interface SimilarQuery {
+    "projectId": string;
+    "crossAgent": boolean;
+
+    /**
+     * 0 — порог по умолчанию
+     */
+    "minScore": number;
+}
+
+/**
+ * TransferLink — связь записи с переносом: Direction «to» — эта запись
+ * источник, другая сторона — копия; «from» — эта запись получена переносом.
+ */
+export interface TransferLink {
+    "direction": string;
+    "move": boolean;
+
+    /**
+     * другая сторона; пусто, если её уже нет в индексе
+     */
+    "itemId": string;
+    "title": string;
+    "agent": model$0.Agent;
+    "time": string;
+    "commit": string;
 }

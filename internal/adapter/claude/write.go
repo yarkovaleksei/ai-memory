@@ -77,13 +77,24 @@ func (in FactInput) hook() string {
 
 // PlanCreate — новый факт и его строка в MEMORY.md (индекс создаётся, если его нет).
 func PlanCreate(memDir string, in FactInput) (writer.Plan, error) {
+	p, err := PlanReplace(memDir, in, nil)
+	if err != nil {
+		return writer.Plan{}, err
+	}
+	p.Op = writer.Op{Code: "claude.fact.create", Params: map[string]string{"name": in.Name}}
+	return p, nil
+}
+
+// PlanReplace — новый факт вместо нескольких старых, одним планом: так
+// объединяются дубли. Если имя нового факта совпадает с одним из заменяемых,
+// этот файл переписывается, а не создаётся заново. Строки MEMORY.md каждого
+// затронутого каталога правятся одним изменением: иначе план менял бы индекс
+// дважды. Op плана задаёт вызывающий.
+func PlanReplace(memDir string, in FactInput, replace []FactRef) (writer.Plan, error) {
 	if err := in.validate(true); err != nil {
 		return writer.Plan{}, err
 	}
 	path := filepath.Join(memDir, in.Name+".md")
-	if _, err := os.Lstat(path); err == nil {
-		return writer.Plan{}, writer.Fail("claude.fact.exists", "name", in.Name)
-	}
 	fm := markdown.NewFrontmatter()
 	fm.Set(in.Name, "name")
 	fm.Set(strings.TrimSpace(in.Description), "description")
@@ -93,17 +104,58 @@ func PlanCreate(memDir string, in FactInput) (writer.Plan, error) {
 	if err != nil {
 		return writer.Plan{}, writer.Fail("claude.frontmatter.invalid", "error", err.Error())
 	}
-	idx, err := readIndex(memDir)
-	if err != nil {
-		return writer.Plan{}, err
+
+	var changes []writer.Change
+	removed := map[string][]string{} // каталог → имена удаляемых файлов
+	dirs := []string{memDir}
+	target := writer.Change{Path: path, AfterExists: true, After: content}
+	seen := map[string]bool{}
+	for _, r := range replace {
+		if seen[r.File] {
+			continue
+		}
+		seen[r.File] = true
+		current, err := readExpected(r.File, r.Hash)
+		if err != nil {
+			return writer.Plan{}, err
+		}
+		if filepath.Clean(r.File) == path {
+			target.BeforeExists, target.Before = true, current
+			continue
+		}
+		changes = append(changes, writer.Change{Path: r.File, BeforeExists: true, Before: current})
+		dir := filepath.Dir(r.File)
+		if removed[dir] == nil && dir != memDir {
+			dirs = append(dirs, dir)
+		}
+		removed[dir] = append(removed[dir], filepath.Base(r.File))
 	}
-	newIdx := idx
-	newIdx.after = appendLine(idx.before, indexLineFor(in.title(), in.Name+".md", in.hook()), idx.eol)
-	return writer.NewPlan(
-		writer.Op{Code: "claude.fact.create", Params: map[string]string{"name": in.Name}},
-		writer.Change{Path: path, AfterExists: true, After: content},
-		newIdx.change(),
-	), nil
+	if !target.BeforeExists {
+		if _, err := os.Lstat(path); err == nil {
+			return writer.Plan{}, writer.Fail("claude.fact.exists", "name", in.Name)
+		}
+	}
+	changes = append([]writer.Change{target}, changes...)
+
+	for _, dir := range dirs {
+		idx, err := readIndex(dir)
+		if err != nil {
+			return writer.Plan{}, err
+		}
+		text := idx.before
+		for _, name := range removed[dir] {
+			text = removeLines(text, name)
+		}
+		if dir == memDir {
+			line := indexLineFor(in.title(), in.Name+".md", in.hook())
+			text = index{before: text, eol: idx.eol}.upsert(in.Name+".md", line)
+		}
+		if text != idx.before {
+			idx.after = text
+			changes = append(changes, idx.change())
+		}
+	}
+	return writer.NewPlan(writer.Op{}, changes...), nil
 }
 
 // PlanUpdate меняет описание, тип и текст факта, сохраняя остальной frontmatter,

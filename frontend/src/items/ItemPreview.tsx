@@ -1,7 +1,9 @@
-import { Alert, Box, Chip, Divider, Stack, Tab, Tabs, Tooltip, Typography } from "@mui/material";
+import { Alert, Box, Chip, Divider, Link, Stack, Tab, Tabs, Tooltip, Typography } from "@mui/material";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { DateField, RecordContextProvider, useGetOne, useTranslate } from "react-admin";
-import type { Item, Project, Source } from "../api/bindings";
+import { HistoryService, type Item, type Project, type Source } from "../api/bindings";
+import { call } from "../api/errors";
 import { ItemActions } from "../edit/ItemActions";
 import { useConsolidationHint } from "../edit/plans";
 import { AgentBadge, TypeBadge } from "./badges";
@@ -45,6 +47,43 @@ export const ItemPreview = ({ id, onOpenItem }: ItemPreviewProps) => {
   }
   // key сбрасывает выбранную вкладку при переходе к другой записи.
   return <ItemView key={data.id} item={data} onOpenItem={onOpenItem} />;
+};
+
+// TransferLinks — пары «источник — копия» из истории переносов: откуда запись
+// перенесена и куда скопирована. Другая сторона открывается по клику.
+const TransferLinks = ({ itemId, onOpenItem }: { itemId: string; onOpenItem: (id: string) => void }) => {
+  const translate = useTranslate();
+  const { data: links = [] } = useQuery({
+    queryKey: ["history", "links", itemId],
+    queryFn: async () => (await call(() => HistoryService.Links(itemId))) ?? [],
+  });
+  if (links.length === 0) return null;
+  return (
+    <Stack spacing={0.5}>
+      {links.map((l) => {
+        const text = translate(`aim.links.${l.direction}${l.move ? "Move" : "Copy"}`, {
+          agent: l.agent ? translate(`aim.agents.${l.agent}`) : "",
+          title: l.title,
+          time: new Date(l.time).toLocaleString(),
+        });
+        return l.itemId ? (
+          <Link
+            key={l.commit}
+            component="button"
+            variant="body2"
+            sx={{ textAlign: "left" }}
+            onClick={() => onOpenItem(l.itemId)}
+          >
+            {text}
+          </Link>
+        ) : (
+          <Typography key={l.commit} variant="body2" color="text.secondary">
+            {text}
+          </Typography>
+        );
+      })}
+    </Stack>
+  );
 };
 
 // Заметка, которую Codex ещё не учёл: подсказка говорит, когда учтёт.
@@ -106,6 +145,7 @@ const ItemView = ({ item, onOpenItem }: { item: Rec<Item>; onOpenItem: (id: stri
           </Typography>
         </Stack>
         <ItemActions item={item} />
+        <TransferLinks itemId={item.id} onOpenItem={onOpenItem} />
         {item.description && <Typography color="text.secondary">{item.description}</Typography>}
         {warnings.length > 0 && (
           <Alert severity="warning">

@@ -156,6 +156,51 @@ func (ix *Index) Get(ctx context.Context, id string) (model.Item, error) {
 	return items[0], nil
 }
 
+// ByFile возвращает запись файла целиком (без раздела): по пути находится
+// факт или заметка, созданные операцией, — так история связывает перенос с
+// записью, которая из него получилась.
+func (ix *Index) ByFile(ctx context.Context, file string) (model.Item, error) {
+	ix.mu.RLock()
+	var id string
+	err := ix.db.QueryRowContext(ctx, `SELECT id FROM items WHERE file = ? AND anchor = '' LIMIT 1`, file).Scan(&id)
+	ix.mu.RUnlock()
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.Item{}, ErrNotFound
+	}
+	if err != nil {
+		return model.Item{}, fmt.Errorf("index: поиск по файлу: %w", err)
+	}
+	return ix.Get(ctx, id)
+}
+
+// All возвращает все записи целиком — для сравнения «каждая с каждой» при
+// поиске дублей. Project в JSON не хранится, поэтому признак временного
+// проекта берётся из своей колонки.
+func (ix *Index) All(ctx context.Context) ([]model.Item, error) {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	rows, err := ix.db.QueryContext(ctx, `SELECT data, temp FROM items ORDER BY rid`)
+	if err != nil {
+		return nil, fmt.Errorf("index: все записи: %w", err)
+	}
+	defer rows.Close()
+	var out []model.Item
+	for rows.Next() {
+		var data string
+		var temp int
+		if err := rows.Scan(&data, &temp); err != nil {
+			return nil, fmt.Errorf("index: все записи: %w", err)
+		}
+		var it model.Item
+		if err := json.Unmarshal([]byte(data), &it); err != nil {
+			return nil, fmt.Errorf("index: запись: %w", err)
+		}
+		it.Project.Temp = temp == 1
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
 // GetMany возвращает найденные записи в порядке запрошенных ID; отсутствующие пропускаются.
 func (ix *Index) GetMany(ctx context.Context, ids []string) ([]model.Item, error) {
 	ix.mu.RLock()

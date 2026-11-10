@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yarkovaleksei/ai-memory/internal/markdown"
 	"github.com/yarkovaleksei/ai-memory/internal/model"
 	"github.com/yarkovaleksei/ai-memory/internal/writer"
 )
@@ -37,22 +38,49 @@ func PlanForget(home string, g Generation, title, body string) (writer.Plan, err
 }
 
 func planNote(home string, g Generation, code, prefix, title, body string) (writer.Plan, error) {
-	title = strings.TrimSpace(title)
-	if title == "" || strings.Contains(title, "\n") {
-		return writer.Plan{}, writer.Fail("codex.note.title-invalid")
+	p, err := PlanNotes(home, g, []NoteSpec{{Title: title, Body: body, Forget: prefix != ""}})
+	if err != nil {
+		return writer.Plan{}, err
 	}
-	if strings.TrimSpace(body) == "" {
-		return writer.Plan{}, writer.Fail("codex.note.body-empty")
-	}
+	p.Op = writer.Op{Code: code, Params: map[string]string{"title": strings.TrimSpace(title)}}
+	return p, nil
+}
+
+// NoteSpec — заметка в плане: обычная или «забыть».
+type NoteSpec struct {
+	Title, Body string
+	Forget      bool
+}
+
+// PlanNotes — несколько новых заметок одним планом (объединение дублей: итог
+// и «забыть» для каждой записи Codex). Имена файлов не пересекаются ни с
+// диском, ни друг с другом. Op плана задаёт вызывающий.
+func PlanNotes(home string, g Generation, specs []NoteSpec) (writer.Plan, error) {
 	dir := NotesDir(home, g)
-	base := now().Format("2006-01-02") + "-" + prefix + Slug(title)
-	path := filepath.Join(dir, base+".md")
-	for i := 2; exists(path); i++ {
-		path = filepath.Join(dir, base+"-"+strconv.Itoa(i)+".md")
+	taken := map[string]bool{}
+	var changes []writer.Change
+	for _, sp := range specs {
+		title := strings.TrimSpace(sp.Title)
+		if title == "" || strings.Contains(title, "\n") {
+			return writer.Plan{}, writer.Fail("codex.note.title-invalid")
+		}
+		if strings.TrimSpace(sp.Body) == "" {
+			return writer.Plan{}, writer.Fail("codex.note.body-empty")
+		}
+		prefix := ""
+		if sp.Forget {
+			prefix = "forget-"
+		}
+		base := now().Format("2006-01-02") + "-" + prefix + Slug(title)
+		path := filepath.Join(dir, base+".md")
+		for i := 2; exists(path) || taken[path]; i++ {
+			path = filepath.Join(dir, base+"-"+strconv.Itoa(i)+".md")
+		}
+		taken[path] = true
+		changes = append(changes, writer.Change{Path: path, AfterExists: true,
+			After: "# " + title + "\n\n" + strings.TrimSpace(sp.Body) + "\n"})
 	}
-	content := "# " + title + "\n\n" + strings.TrimSpace(body) + "\n"
-	return writer.NewPlan(writer.Op{Code: code, Params: map[string]string{"title": title}},
-		writer.Change{Path: path, AfterExists: true, After: content}), nil
+	return writer.NewPlan(writer.Op{}, changes...), nil
 }
 
 // PlanUpdateNote заменяет текст заметки целиком; Codex вольёт правку при
@@ -77,6 +105,23 @@ func PlanUpdateNote(file, hash, content string) (writer.Plan, error) {
 	}
 	return writer.NewPlan(writer.Op{Code: "codex.note.update", Params: map[string]string{"file": filepath.Base(file)}},
 		writer.Change{Path: file, BeforeExists: true, Before: string(data), AfterExists: true, After: content}), nil
+}
+
+// CancelNote — новое содержимое нашей заметки при её отмене. Файл заметки
+// удалять нельзя (ADR-002), поэтому заголовок остаётся, а текст заменяется
+// сообщением об отмене: правку заметки Codex вливает так же, как новую
+// (ADR-014). Текст сообщения задаёт интерфейс.
+func CancelNote(current, message string) string {
+	title := markdown.FirstHeading(current)
+	if title == "" {
+		title = "note"
+	}
+	return "# " + title + "\n\n" + strings.TrimSpace(message) + "\n"
+}
+
+// IsNote — путь лежит прямо в каталоге заметок поколения.
+func IsNote(home string, g Generation, path string) bool {
+	return filepath.Dir(path) == NotesDir(home, g) && strings.EqualFold(filepath.Ext(path), ".md")
 }
 
 func exists(p string) bool {

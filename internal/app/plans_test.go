@@ -49,7 +49,7 @@ func newEditEnv(t *testing.T) editEnv {
 	if _, err := lib.Rebuild(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	plans, history := NewEditing(context.Background(), lib, cfg, nil)
+	plans, history := NewEditing(context.Background(), lib, NewRuntime(cfg), nil)
 	rec := &recorder{}
 	plans.e.emit = rec.emit
 	if !plans.Status(context.Background()).Enabled {
@@ -124,6 +124,8 @@ func (e editEnv) apply(t *testing.T) func(writer.Plan, error) ApplyResult {
 	}
 }
 
+const cancelMsg = "Пользователь отменил эту заметку: её прежнее содержимое не должно оставаться в памяти."
+
 func errCode(err error) string {
 	var ae *Error
 	if errors.As(err, &ae) {
@@ -183,7 +185,7 @@ func TestEditFactAndRevert(t *testing.T) {
 	if err != nil || len(hist) != 1 || hist[0].Commit != res.Commit {
 		t.Fatalf("История: %+v %v", hist, err)
 	}
-	e.apply(t)(e.history.Revert(ctx, res.Commit))
+	e.apply(t)(e.history.Revert(ctx, res.Commit, cancelMsg))
 	if readFile(t, it.File) != before || readFile(t, index) != indexBefore {
 		t.Error("откат не вернул файлы байт в байт")
 	}
@@ -260,8 +262,21 @@ func TestCodexNotes(t *testing.T) {
 	if len(entries) != 2 {
 		t.Fatalf("в каталоге заметок %d файлов, ожидалось 2", len(entries))
 	}
-	if _, err := e.history.Revert(ctx, res.Commit); errCode(err) != "codex.note.delete-forbidden" {
-		t.Errorf("откат создания заметки удалил бы файл: %v", err)
+	// Откат создания заметки не удаляет файл, а переписывает его на отмену (ADR-014).
+	notePath := filepath.Join(notesDir, entries[1].Name())
+	if entries[0].Name() > entries[1].Name() {
+		notePath = filepath.Join(notesDir, entries[0].Name())
+	}
+	if _, err := e.history.Revert(ctx, res.Commit, ""); errCode(err) != "codex.note.body-empty" {
+		t.Errorf("отмена без текста: %v", err)
+	}
+	cancel := e.apply(t)(e.history.Revert(ctx, res.Commit, cancelMsg))
+	if got := readFile(t, notePath); got != "# Сборка демо\n\n"+cancelMsg+"\n" {
+		t.Errorf("заметка после отмены:\n%s", got)
+	}
+	e.apply(t)(e.history.Revert(ctx, cancel.Commit, cancelMsg))
+	if got := readFile(t, notePath); got != "# Сборка демо\n\n- Собирается командой make demo.\n" {
+		t.Errorf("откат отмены должен вернуть заметку:\n%s", got)
 	}
 
 	e.apply(t)(e.plans.ForgetNote(ctx, "Забыть: make demo", "Исключи из памяти, что демо собирается через make demo."))

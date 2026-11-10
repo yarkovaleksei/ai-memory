@@ -16,7 +16,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
- * Info возвращает копию сведений, чтобы вызывающий не мог изменить состояние сервиса.
+ * Info возвращает сведения по текущей конфигурации.
  */
 export function Info(): $CancellablePromise<$models.AppInfo> {
     return $Call.ByID(3678567130);

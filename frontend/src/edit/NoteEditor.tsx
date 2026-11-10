@@ -60,7 +60,7 @@ export const NoteEditor = ({ target, onClose }: { target: NoteTarget; onClose: (
   );
 };
 
-const ConsolidationAlert = () => {
+export const ConsolidationAlert = () => {
   const translate = useTranslate();
   const hint = useConsolidationHint();
   const { data } = useEditStatus();

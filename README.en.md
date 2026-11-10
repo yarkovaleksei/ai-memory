@@ -25,7 +25,7 @@ Every write is previewed as a diff and saved to a separate backup repository, so
 
 ## Settings
 
-With no settings, ai-memory reads the Claude Code profile `~/.claude` (plus the directory in `CLAUDE_CONFIG_DIR`, if set) and Codex from `~/.codex` (or `CODEX_HOME`). If you keep several Claude profiles, say a work one and a personal one in different directories, list them in `config.toml` in the settings directory: `~/.config/ai-memory/` on Linux, `~/Library/Application Support/ai-memory/` on macOS, `%AppData%\ai-memory\` on Windows.
+With no settings, ai-memory reads the Claude Code profile `~/.claude` (plus the directory in `CLAUDE_CONFIG_DIR`, if set) and Codex from `~/.codex` (or `CODEX_HOME`). If you keep several Claude profiles, say a work one and a personal one in different directories, add them on the Settings screen: you pick the directory in the system dialog and memory is reread at once. The screen writes `config.toml` in the settings directory (`~/.config/ai-memory/` on Linux, `~/Library/Application Support/ai-memory/` on macOS, `%AppData%\ai-memory\` on Windows), which you can also edit by hand:
 
 ```toml
 # Extra Claude Code profiles. Any names; ~ expands to your home directory.

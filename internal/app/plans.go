@@ -13,7 +13,6 @@ import (
 	"github.com/yarkovaleksei/ai-memory/internal/adapter/claude"
 	"github.com/yarkovaleksei/ai-memory/internal/adapter/codex"
 	"github.com/yarkovaleksei/ai-memory/internal/backup"
-	"github.com/yarkovaleksei/ai-memory/internal/config"
 	"github.com/yarkovaleksei/ai-memory/internal/index"
 	"github.com/yarkovaleksei/ai-memory/internal/library"
 	"github.com/yarkovaleksei/ai-memory/internal/model"
@@ -33,7 +32,7 @@ const maxPlans = 32
 // применяются тем же Apply.
 type editor struct {
 	lib      *library.Library
-	cfg      config.Config
+	rt       *Runtime
 	repo     *backup.Repo
 	disabled string // код причины, по которой запись выключена; пусто — включена
 	log      *slog.Logger
@@ -48,12 +47,12 @@ type editor struct {
 
 // NewEditing открывает репозиторий бэкапов и создаёт сервисы записи. Без git
 // окно работает, но только на чтение: писать без снимка нельзя (ADR-012).
-func NewEditing(ctx context.Context, lib *library.Library, cfg config.Config, log *slog.Logger) (*PlansService, *HistoryService) {
+func NewEditing(ctx context.Context, lib *library.Library, rt *Runtime, log *slog.Logger) (*PlansService, *HistoryService) {
 	if log == nil {
 		log = slog.Default()
 	}
-	e := &editor{lib: lib, cfg: cfg, log: log, plans: map[string]writer.Plan{}, emit: emitEvent}
-	repo, err := backup.Open(ctx, filepath.FromSlash(cfg.DataDir))
+	e := &editor{lib: lib, rt: rt, log: log, plans: map[string]writer.Plan{}, emit: emitEvent}
+	repo, err := backup.Open(ctx, filepath.FromSlash(rt.Config().DataDir))
 	switch {
 	case errors.Is(err, backup.ErrNoGit):
 		e.disabled = backup.ErrNoGit.Error()
@@ -96,7 +95,8 @@ func fail(code string, kv ...string) error {
 // --- окружение записи ---
 
 func (e *editor) codexAdapter() codex.Adapter {
-	return codex.Adapter{Home: e.cfg.CodexHome, Generation: codex.Parse(e.cfg.CodexGeneration)}
+	cfg := e.rt.Config()
+	return codex.Adapter{Home: cfg.CodexHome, Generation: codex.Parse(cfg.CodexGeneration)}
 }
 
 // writer собирается на каждое применение: активное поколение Codex может
@@ -105,11 +105,12 @@ func (e *editor) writer(ctx context.Context) (*writer.Writer, error) {
 	if e.disabled != "" {
 		return nil, fail(e.disabled)
 	}
-	roots := make([]string, 0, len(e.cfg.ClaudeProfiles)+1)
-	for _, p := range e.cfg.ClaudeProfiles {
+	cfg := e.rt.Config()
+	roots := make([]string, 0, len(cfg.ClaudeProfiles)+1)
+	for _, p := range cfg.ClaudeProfiles {
 		roots = append(roots, filepath.FromSlash(p))
 	}
-	home := filepath.FromSlash(e.cfg.CodexHome)
+	home := filepath.FromSlash(cfg.CodexHome)
 	if home != "" {
 		roots = append(roots, home)
 	}
@@ -196,7 +197,7 @@ func (s *PlansService) Status(ctx context.Context) EditStatus {
 		Codex: CodexStatus{
 			Generation:       string(g),
 			GenerationReason: reason,
-			Consolidation:    codex.ReadConsolidation(ctx, s.e.cfg.CodexHome, g),
+			Consolidation:    codex.ReadConsolidation(ctx, s.e.rt.Config().CodexHome, g),
 			CooldownHours:    int(codex.CooldownAfterSuccess / time.Hour),
 		},
 	}
@@ -363,13 +364,13 @@ func (s *PlansService) FixIndex(ctx context.Context, itemID string) (writer.Plan
 // уточнить факт.
 func (s *PlansService) CreateNote(ctx context.Context, title, body string) (writer.Plan, error) {
 	g, _ := s.e.codexAdapter().Active(ctx)
-	return s.e.keep(codex.PlanNewNote(s.e.cfg.CodexHome, g, title, body))
+	return s.e.keep(codex.PlanNewNote(s.e.rt.Config().CodexHome, g, title, body))
 }
 
 // ForgetNote — заметка, которая просит Codex исключить факт из памяти.
 func (s *PlansService) ForgetNote(ctx context.Context, title, body string) (writer.Plan, error) {
 	g, _ := s.e.codexAdapter().Active(ctx)
-	return s.e.keep(codex.PlanForget(s.e.cfg.CodexHome, g, title, body))
+	return s.e.keep(codex.PlanForget(s.e.rt.Config().CodexHome, g, title, body))
 }
 
 // ApplyResult — коммит операции в истории и индекс после записи.
@@ -436,7 +437,9 @@ func (s *HistoryService) List(ctx context.Context) ([]writer.Entry, error) {
 }
 
 // Revert строит план отката операции; применяется он через PlansService.Apply.
-func (s *HistoryService) Revert(ctx context.Context, commit string) (writer.Plan, error) {
+// cancelMessage — текст отмены для заметок Codex, которые создала
+// откатываемая операция (ADR-014); его даёт словарь интерфейса.
+func (s *HistoryService) Revert(ctx context.Context, commit, cancelMessage string) (writer.Plan, error) {
 	w, err := s.e.writer(ctx)
 	if err != nil {
 		return writer.Plan{}, err
@@ -445,13 +448,22 @@ func (s *HistoryService) Revert(ctx context.Context, commit string) (writer.Plan
 	if err != nil {
 		return writer.Plan{}, s.e.error(err)
 	}
-	// Откат создания заметки Codex удалил бы её файл, а это запрещено (ADR-002).
-	// Говорим об этом сразу, а не после диалога с diff.
-	if home := filepath.FromSlash(s.e.cfg.CodexHome); home != "" {
-		for _, c := range p.Changes {
-			if !c.AfterExists && strings.HasPrefix(c.Path, home+string(filepath.Separator)) {
+	// Откат создания заметки Codex не удаляет файл (ADR-002), а переписывает
+	// заметку на отмену (ADR-014). Удаление любого другого файла Codex
+	// отклоняется сразу, а не после диалога с diff.
+	if home := filepath.FromSlash(s.e.rt.Config().CodexHome); home != "" {
+		for i, c := range p.Changes {
+			if c.AfterExists || !strings.HasPrefix(c.Path, home+string(filepath.Separator)) {
+				continue
+			}
+			if !codex.IsNote(home, codex.GenV2, c.Path) && !codex.IsNote(home, codex.GenV1, c.Path) {
 				return writer.Plan{}, fail("codex.note.delete-forbidden", "path", c.Path)
 			}
+			if strings.TrimSpace(cancelMessage) == "" {
+				return writer.Plan{}, fail("codex.note.body-empty")
+			}
+			p.Changes[i].AfterExists = true
+			p.Changes[i].After = codex.CancelNote(c.Before, cancelMessage)
 		}
 	}
 	return s.e.keep(p, nil)

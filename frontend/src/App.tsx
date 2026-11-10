@@ -4,6 +4,8 @@ import { Route } from "react-router-dom";
 import { Dashboard } from "./Dashboard";
 import { dataProvider } from "./dataProvider";
 import { HistoryPage } from "./history/HistoryPage";
+import { SettingsPage } from "./settings/SettingsPage";
+import { SimilarPage } from "./similar/SimilarPage";
 import { i18nProvider } from "./i18n";
 import { ItemList } from "./items/ItemList";
 import { Layout } from "./layout/Layout";
@@ -23,7 +25,9 @@ export const App = () => (
     <Resource name="projects" />
     <Resource name="sources" />
     <CustomRoutes>
+      <Route path="/similar" element={<SimilarPage />} />
       <Route path="/history" element={<HistoryPage />} />
+      <Route path="/settings" element={<SettingsPage />} />
       <Route path="/about" element={<Dashboard />} />
     </CustomRoutes>
   </Admin>

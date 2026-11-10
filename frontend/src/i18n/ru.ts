@@ -31,6 +31,8 @@ const ru: TranslationMessages = {
     menu: {
       memory: "Память",
       history: "История",
+      similar: "Похожие",
+      settings: "Настройки",
       about: "О программе",
     },
     agents: {
@@ -164,6 +166,28 @@ const ru: TranslationMessages = {
         "auto-memory-directory":
           "В settings.json профиля задан autoMemoryDirectory (%{dir}): в такие профили ai-memory пока не пишет",
       },
+      settings: {
+        "generation-invalid": "Поколение Codex — v1, v2 или «определять автоматически»",
+        "write-failed": "Не удалось записать настройки: %{error}",
+        "dialog-failed": "Не удалось открыть выбор каталога: %{error}",
+      },
+      llm: {
+        "not-found": "Не найдена команда %{agent} в PATH: установите CLI агента или выберите другого",
+        failed: "%{agent} не ответил: %{detail}",
+        timeout: "%{agent} не ответил за 5 минут — попробуйте меньше записей",
+        canceled: "Запрос к модели остановлен",
+        "bad-answer": "Ответ %{agent} не удалось разобрать: %{detail}",
+        "agent-invalid": "Неизвестный агент: %{agent}",
+        "too-large": "Записи не помещаются в один запрос (больше %{max} символов) — выберите меньше",
+      },
+      merge: {
+        "too-few": "Для объединения выберите хотя бы две записи",
+        "target-invalid": "Неизвестно, куда записать итог объединения",
+      },
+      transfer: {
+        "same-place": "Факт уже лежит в этом проекте и профиле — выберите другой или скопируйте",
+        "same-agent": "Запись Codex переносится только в Claude Code",
+      },
       codex: {
         "generated-readonly": "%{path} создаёт сам Codex — меняйте его через заметку",
         "consolidation-running": "Codex сейчас консолидирует память — повторите через пару минут",
@@ -184,6 +208,11 @@ const ru: TranslationMessages = {
       "codex.note.create": "Новая заметка Codex «%{title}»",
       "codex.note.forget": "Заметка «Забыть»: %{title}",
       "codex.note.update": "Изменить заметку Codex %{file}",
+      "transfer.copy-to-claude": "Копия в Claude Code: факт «%{name}»",
+      "transfer.move-to-claude": "Перенос в Claude Code: факт «%{name}»",
+      "transfer.copy-to-codex": "Копия в Codex: заметка «%{title}»",
+      "transfer.move-to-codex": "Перенос в Codex: заметка «%{title}»",
+      merge: "Объединение записей (%{count}) в «%{title}»",
       revert: "Откат: %{op}",
     },
     opKinds: {
@@ -194,6 +223,11 @@ const ru: TranslationMessages = {
       "codex.note.create": "новая заметка",
       "codex.note.forget": "заметка «Забыть»",
       "codex.note.update": "правка заметки",
+      "transfer.copy-to-claude": "копия в Claude Code",
+      "transfer.move-to-claude": "перенос в Claude Code",
+      "transfer.copy-to-codex": "копия в Codex",
+      "transfer.move-to-codex": "перенос в Codex",
+      merge: "объединение",
       revert: "откат",
     },
     plan: {
@@ -216,6 +250,7 @@ const ru: TranslationMessages = {
       create: "Создать",
       createFact: "Факт Claude",
       createNote: "Заметка Codex",
+      transfer: "Перенести…",
       deleteSelected:
         "Удалить %{smart_count} факт |||| Удалить %{smart_count} факта |||| Удалить %{smart_count} фактов",
     },
@@ -269,6 +304,8 @@ const ru: TranslationMessages = {
     },
     codex: {
       pending: "Ожидает консолидации",
+      cancelNote:
+        "Пользователь отменил эту заметку: всё, что в ней было написано раньше, неверно и не должно оставаться в памяти.",
       notesOnly:
         "В память Codex пишутся только заметки, в активное поколение %{generation}. Сам Codex перепишет сводку, когда учтёт заметку",
       hint: {
@@ -278,6 +315,124 @@ const ru: TranslationMessages = {
         unknown:
           "Codex учтёт заметку при следующей консолидации — в начале хода сессии, не чаще раза в %{hours} ч",
       },
+    },
+    transfer: {
+      title: "Перенос «%{title}»",
+      target: "Куда",
+      targets: {
+        claude: "В Claude Code",
+        codex: "В Codex",
+      },
+      move: "Убрать из источника",
+      copyHelp: "Источник останется на месте. Пара «источник — копия» будет видна в обеих записях",
+      moveHelp: {
+        claude: "Исходный факт Claude будет удалён тем же планом",
+        codex:
+          "Запись Codex нельзя удалить напрямую: тем же планом создастся заметка «Забыть», и Codex уберёт запись при консолидации",
+      },
+      already: "Эта запись уже переносилась сюда: «%{title}», %{time}",
+      origin: "Источник: «%{title}» из памяти Claude Code, проект %{project}.",
+      forgetBody:
+        "Пользователь перенёс «%{title}» в память Claude Code: в памяти Codex этого больше быть не должно.",
+    },
+    settings: {
+      title: "Настройки",
+      loading: "Загрузка настроек…",
+      intro:
+        "Настройки хранятся в %{file}. Память агентов здесь не меняется; после сохранения ai-memory перечитает её без перезапуска",
+      default: "по умолчанию",
+      saved: "Настройки сохранены, память перечитана",
+      pickTitle: "Выберите каталог",
+      claude: {
+        title: "Профили Claude Code",
+        help: "Каталоги вроде ~/.claude или того, что задаёт CLAUDE_CONFIG_DIR. Профили по умолчанию читаются всегда, здесь добавляются остальные",
+        locked: "Профили заданы переменной AI_MEMORY_CLAUDE_DIRS — список из файла сейчас не действует",
+        pick: "Выбрать каталог…",
+        manual: "Или путь вручную (можно с ~)",
+        add: "Добавить",
+        remove: "Убрать %{dir}",
+      },
+      codex: {
+        title: "Codex",
+        locked: "Корень Codex задан переменной AI_MEMORY_CODEX_HOME — значение из файла сейчас не действует",
+        home: "Корень Codex",
+        homeHelp: "Пусто — по умолчанию: %{dir}",
+        pick: "Выбрать…",
+        generation: "Поколение памяти Codex",
+        auto: "Определять автоматически (сейчас %{generation}: %{reason})",
+        v1: "v1 — каталог memories",
+        v2: "v2 — каталог memories_v2",
+        showInactive: "Показывать неактивное поколение (только чтение)",
+      },
+      reasons: {
+        settings: "задано здесь",
+        config: "из config.toml Codex",
+        activity: "по последней работе Codex",
+        "only-one": "другого поколения нет",
+        default: "умолчание Codex",
+      },
+    },
+    similar: {
+      title: "Похожие записи",
+      subtitle:
+        "Кандидаты в дубли внутри проектов и между агентами. Найдены по совпадению слов, без LLM: что объединять, решаете вы",
+      crossAgent: "Только между агентами",
+      threshold: "Порог сходства",
+      thresholds: {
+        low: "Низкий — больше кандидатов",
+        normal: "Обычный",
+        high: "Высокий — только близкие",
+      },
+      loading: "Ищу похожие записи…",
+      empty: "Похожих записей не найдено",
+      score: "Сходство %{score}%",
+      compare: "Сравнить",
+      hideCompare: "Скрыть сравнение",
+      merge: "Объединить…",
+      contradictions: {
+        title: "Противоречия",
+        help: "Модель сравнивает записи внутри найденных групп и ищет те, что утверждают разное: разные ветки, версии, правила. Ничего не записывается",
+        check: "Проверить через %{agent}",
+        checking: "%{agent} сравнивает записи…",
+        none: "Противоречий не найдено",
+        noGroups: "Нет групп похожих записей — сравнивать нечего",
+        checked: "Проверено групп: %{checked} из %{groups}",
+        truncated:
+          "Не все группы поместились в один запрос — сузьте выбор порогом или фильтром «Только между агентами»",
+      },
+    },
+    merge: {
+      title:
+        "Объединить %{smart_count} запись |||| Объединить %{smart_count} записи |||| Объединить %{smart_count} записей",
+      targets: {
+        claude: "Итог — факт Claude",
+        codex: "Итог — заметка Codex",
+      },
+      effect:
+        "Тем же планом удаляются факты Claude: %{facts}; для записей Codex создаются заметки «Забыть»: %{notes}. Откатывается одной операцией",
+      forgetBody:
+        "Пользователь объединил «%{title}» с похожими записями: эта формулировка больше не нужна, итог записан отдельно.",
+    },
+    llm: {
+      agents: {
+        claude: "Claude",
+        codex: "Codex",
+      },
+      draft: "Черновик от %{agent}",
+      drafting: "%{agent} сводит записи…",
+      stop: "Остановить",
+      draftHelp:
+        "Модель сводит тексты записей в один черновик. Ничего не записывается, пока вы не проверите diff и не нажмёте «Записать»",
+      drafted: "Черновик от %{agent} вставлен в форму — проверьте его",
+      noAgents: "Команды claude и codex не найдены в PATH — черновик от модели недоступен",
+      contradictions: "Записи расходятся — решите, что оставить в итоге:",
+      between: "%{summary} (%{titles})",
+    },
+    links: {
+      toCopy: "Скопировано в %{agent}: «%{title}»",
+      toMove: "Перенесено в %{agent}: «%{title}»",
+      fromCopy: "Копия записи %{agent} «%{title}»",
+      fromMove: "Перенесено из %{agent}: «%{title}»",
     },
     history: {
       title: "История",

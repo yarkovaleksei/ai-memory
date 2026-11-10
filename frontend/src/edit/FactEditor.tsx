@@ -13,9 +13,16 @@ import {
   Typography,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useGetList, useTranslate } from "react-admin";
-import { PlansService, type Draft, type FactInput, type Project, type Source } from "../api/bindings";
+import {
+  PlansService,
+  type Draft,
+  type FactInput,
+  type Plan,
+  type Project,
+  type Source,
+} from "../api/bindings";
 import { call } from "../api/errors";
 import { useErrorText } from "../items/text";
 import { CodeEditor } from "./CodeEditor";
@@ -68,20 +75,41 @@ interface FactFormProps {
   draft?: Draft;
   projectId?: string;
   onClose: () => void;
+  // Для переноса: поля заполнены из исходной записи, план строит перенос.
+  initial?: Partial<FactInput>;
+  build?: (sourceId: string, projectId: string, fact: FactInput) => Promise<Plan>;
+  extra?: ReactNode; // над полями: выбор режима переноса и предупреждения
+  // Поля, вписываемые в открытую форму, например черновик от LLM. Новый seq —
+  // новая вставка; остальное, что пользователь уже выбрал, остаётся.
+  patch?: { seq: number; fact: Partial<FactInput> };
 }
 
-const FactForm = ({ itemId, draft, projectId, onClose }: FactFormProps) => {
+export const FactForm = ({
+  itemId,
+  draft,
+  projectId,
+  onClose,
+  initial,
+  build: buildNew,
+  extra,
+  patch,
+}: FactFormProps) => {
   const translate = useTranslate();
   const runPlan = useRunPlan();
   const editing = !!itemId && !!draft;
   // Хэш фиксируется при открытии: если файл изменят, пока форма открыта, план
   // не построится и не затрёт чужую правку — даже когда черновик перечитан.
   const [baseHash] = useState(draft?.hash ?? "");
-  const [fact, setFact] = useState<FactInput>(() => ({ ...emptyFact, ...(draft?.fact ?? {}) }));
+  const [fact, setFact] = useState<FactInput>(() => ({ ...emptyFact, ...initial, ...(draft?.fact ?? {}) }));
   const [content, setContent] = useState(draft?.content ?? "");
   const [tab, setTab] = useState<"form" | "source">(draft && !draft.fact ? "source" : "form");
   const [project, setProject] = useState(projectId ?? "");
   const [source, setSource] = useState("");
+  const [patchSeq, setPatchSeq] = useState(patch?.seq ?? 0);
+  if (patch && patch.seq !== patchSeq) {
+    setPatchSeq(patch.seq);
+    setFact((f) => ({ ...f, ...patch.fact }));
+  }
 
   const { data: projects = [] } = useGetList<Project & { id: string }>("projects", {}, { enabled: !editing });
   const { data: sources = [] } = useGetList<Source & { id: string }>("sources", {}, { enabled: !editing });
@@ -94,7 +122,8 @@ const FactForm = ({ itemId, draft, projectId, onClose }: FactFormProps) => {
 
   const preview = () => {
     let build;
-    if (!editing) build = () => PlansService.CreateFact(sourceId, project, fact);
+    if (!editing && buildNew) build = () => buildNew(sourceId, project, fact);
+    else if (!editing) build = () => PlansService.CreateFact(sourceId, project, fact);
     else if (tab === "source") build = () => PlansService.UpdateSource(itemId, baseHash, content);
     else build = () => PlansService.UpdateFact(itemId, baseHash, fact);
     void runPlan(build, { onApplied: onClose });
@@ -104,6 +133,7 @@ const FactForm = ({ itemId, draft, projectId, onClose }: FactFormProps) => {
     <>
       <DialogContent dividers>
         <Stack spacing={2}>
+          {extra}
           {editing && (
             <Tabs value={tab} onChange={(_, v: "form" | "source") => setTab(v)}>
               <Tab value="form" label={translate("aim.fact.tabs.form")} disabled={!draft.fact} />

@@ -278,3 +278,17 @@ func equalMaps(a, b map[string]string) bool {
 	}
 	return true
 }
+
+func TestCombine(t *testing.T) {
+	a := NewPlan(Op{Code: "a"}, Change{Path: "/m/a.md", AfterExists: true, After: "1"})
+	b := NewPlan(Op{Code: "b"}, Change{Path: "/m/b.md", AfterExists: true, After: "2"})
+	p, err := Combine(Op{Code: "ab"}, a, b)
+	if err != nil || p.Op.Code != "ab" || len(p.Changes) != 2 || p.ID == a.ID {
+		t.Errorf("Combine: %+v %v", p, err)
+	}
+	// Два плана, меняющих один файл, строились от одного состояния диска — второй
+	// затёр бы первый.
+	if _, err := Combine(Op{Code: "aa"}, a, a); code(err) != "write.path-duplicate" {
+		t.Errorf("один файл в двух планах: %v", err)
+	}
+}

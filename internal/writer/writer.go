@@ -53,6 +53,26 @@ func NewPlan(op Op, changes ...Change) Plan {
 	return Plan{ID: hex.EncodeToString(b[:]), Op: op, Changes: changes}
 }
 
+// Combine собирает несколько планов в одну операцию: перенос — это создание
+// записи и удаление (или «забыть») исходной, и откатываться они должны вместе.
+// Планы, которые меняют один и тот же файл, не сочетаются: каждый строился от
+// состояния диска, а не от результата другого.
+func Combine(op Op, plans ...Plan) (Plan, error) {
+	var changes []Change
+	seen := map[string]bool{}
+	for _, p := range plans {
+		for _, c := range p.Changes {
+			key := pathKey(c.Path)
+			if seen[key] {
+				return Plan{}, Fail("write.path-duplicate", "path", c.Path)
+			}
+			seen[key] = true
+			changes = append(changes, c)
+		}
+	}
+	return NewPlan(op, changes...), nil
+}
+
 // Error — отказ writer'а кодом с параметрами.
 type Error struct {
 	Code   string

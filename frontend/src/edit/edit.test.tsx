@@ -139,8 +139,61 @@ describe("история", () => {
     expect(await screen.findByText("Изменить факт «prefer-yarn»")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Откатить" }));
     const planDialog = within(await screen.findByRole("dialog", { name: "Откат: правка факта" }));
-    expect(historyService.Revert).toHaveBeenCalledWith("abc1234def");
+    expect(historyService.Revert).toHaveBeenCalledWith(
+      "abc1234def",
+      expect.stringContaining("Пользователь отменил эту заметку"),
+    );
     fireEvent.click(planDialog.getByRole("button", { name: "Записать" }));
     await waitFor(() => expect(plansService.Apply).toHaveBeenCalledWith("plan-revert"));
+  });
+});
+
+describe("перенос между агентами", () => {
+  it("факт Claude переносится в Codex заметкой с указанием источника", async () => {
+    const pane = await openItem("Пакеты только через yarn");
+    fireEvent.click(pane.getByRole("button", { name: "Перенести…" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Перенос «Пакеты только через yarn»" }));
+    // Пара с прошлым переносом в Codex — предупреждение о повторе.
+    expect(await dialog.findByText(/уже переносилась сюда: «Сборка демо»/)).toBeInTheDocument();
+    const body = dialog.getByLabelText("Текст заметки") as HTMLTextAreaElement;
+    expect(body.value).toContain(
+      "Источник: «Пакеты только через yarn» из памяти Claude Code, проект /home/me/projects/demo.",
+    );
+    fireEvent.click(dialog.getByLabelText("Убрать из источника"));
+    fireEvent.click(dialog.getByRole("button", { name: "Показать изменения" }));
+    await screen.findByRole("dialog", { name: "Перенос в Codex: заметка «Пакеты только через yarn»" });
+    expect(plansService.TransferToCodex).toHaveBeenCalledWith(
+      "i-yarn",
+      "Пакеты только через yarn",
+      expect.stringContaining("Ставь пакеты через **yarn**"),
+      true,
+    );
+  });
+
+  it("запись Codex переносится в Claude фактом и заметкой «Забыть»", async () => {
+    const pane = await openItem("User preferences");
+    fireEvent.click(pane.getByRole("button", { name: "Перенести…" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Перенос «User preferences»" }));
+    expect(dialog.queryByRole("button", { name: "В Codex" })).not.toBeInTheDocument();
+    expect(dialog.getByLabelText("Имя")).toHaveValue("user-preferences");
+    fireEvent.click(dialog.getByLabelText("Убрать из источника"));
+    fireEvent.click(dialog.getByRole("button", { name: "Показать изменения" }));
+    await waitFor(() =>
+      expect(plansService.TransferToClaude).toHaveBeenCalledWith(
+        "i-section",
+        "claude:/fx/.claude",
+        "",
+        expect.objectContaining({ name: "user-preferences", body: "- Prefers short answers." }),
+        true,
+        "Забыть: User preferences",
+        expect.stringContaining("перенёс «User preferences» в память Claude Code"),
+      ),
+    );
+  });
+
+  it("показывает пару «источник — копия» и открывает копию", async () => {
+    const pane = await openItem("Пакеты только через yarn");
+    fireEvent.click(await pane.findByRole("button", { name: "Скопировано в Codex: «Сборка демо»" }));
+    expect((await screen.findAllByRole("heading", { name: "Сборка демо" }))[0]).toBeInTheDocument();
   });
 });

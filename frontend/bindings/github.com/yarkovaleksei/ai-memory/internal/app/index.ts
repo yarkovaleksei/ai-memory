@@ -3,22 +3,34 @@
 
 import * as HistoryService from "./historyservice.js";
 import * as InfoService from "./infoservice.js";
+import * as LLMService from "./llmservice.js";
 import * as LibraryService from "./libraryservice.js";
 import * as PlansService from "./plansservice.js";
+import * as SettingsService from "./settingsservice.js";
 export {
     HistoryService,
     InfoService,
+    LLMService,
     LibraryService,
-    PlansService
+    PlansService,
+    SettingsService
 };
 
 export type {
     AppInfo,
     ApplyResult,
     CodexStatus,
+    Contradiction,
+    ContradictionReport,
     Draft,
     EditStatus,
     ItemPage,
     ItemQuery,
-    ListItem
+    ListItem,
+    MergeRequest,
+    NoteText,
+    SettingsView,
+    SimilarGroup,
+    SimilarQuery,
+    TransferLink
 } from "./models.js";

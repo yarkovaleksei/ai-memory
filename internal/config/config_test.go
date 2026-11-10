@@ -188,3 +188,22 @@ func TestReadSettingsMissingFile(t *testing.T) {
 		t.Fatalf("ожидались пустые настройки без ошибки, получено %+v, %v", s, err)
 	}
 }
+
+func TestSettingsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	in := Settings{ExtraClaudeProfiles: []string{" ~/.claude-personal ", "", "~/.claude-personal", "/opt/claude"}, CodexGeneration: "v2"}
+	clean, err := in.Clean()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteSettings(dir, clean); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ReadSettings(dir)
+	if err != nil || len(got.ExtraClaudeProfiles) != 2 || got.ExtraClaudeProfiles[0] != "~/.claude-personal" || got.CodexGeneration != "v2" {
+		t.Errorf("прочитано: %+v %v", got, err)
+	}
+	if _, err := (Settings{CodexGeneration: "v3"}).Clean(); err != ErrGeneration {
+		t.Errorf("поколение v3: %v", err)
+	}
+}
