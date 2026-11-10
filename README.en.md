@@ -4,7 +4,7 @@
 
 A desktop app for the memory of Claude Code and Codex: browse it by project, search it, edit and delete entries, move facts from one agent to the other, and merge duplicates.
 
-> **Status:** phase 0, the app skeleton. The window opens, but it doesn't show memory yet; work follows the [plan](plan/README.md). How to run and check it: the commands section of [AGENTS.md](AGENTS.md). The plan and the developer docs are written in Russian.
+> **Status:** phase 0 (the app skeleton) is done; next is phase 1, browsing memory. The window opens, but it doesn't show memory yet; work follows the [plan](plan/README.md). How to run and check it: the commands section of [AGENTS.md](AGENTS.md). The plan and the developer docs are written in Russian.
 
 ## Why
 
