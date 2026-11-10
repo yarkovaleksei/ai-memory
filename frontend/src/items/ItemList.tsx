@@ -1,6 +1,7 @@
+import CloseIcon from "@mui/icons-material/Close";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchOffIcon from "@mui/icons-material/SearchOff";
-import { Box, Button, Paper, Stack, Typography } from "@mui/material";
+import { alpha, Box, Button, IconButton, Paper, Stack, Tooltip, Typography } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import {
@@ -102,6 +103,7 @@ const ItemListView = () => {
             <RebuildButton />
           </Stack>
         </Stack>
+        <SelectionBar />
         <Box sx={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
           <ItemTable selected={selected} onSelect={open} />
         </Box>
@@ -132,7 +134,12 @@ const ItemTable = ({ selected, onSelect }: { selected: string | null; onSelect: 
   }
   return (
     <DataTable<Row>
-      bulkActionButtons={selectable ? <BulkActions /> : false}
+      // Панель действий над отмеченными — своя, SelectionBar над таблицей:
+      // штатная react-admin висит над таблицей со сдвигом вверх, и прокручиваемый
+      // блок вокруг таблицы её обрезает. bulkActionButtons нужен только для
+      // колонки отметок.
+      bulkActionButtons={selectable}
+      bulkActionsToolbar={false}
       isRowSelectable={isSelectable}
       rowClick={(id) => {
         onSelect(String(id));
@@ -147,6 +154,36 @@ const ItemTable = ({ selected, onSelect }: { selected: string | null; onSelect: 
       <DataTable.Col source="type" render={(r) => <TypeBadge type={r.type} />} />
       <DataTable.Col source="modTime" field={DateField} />
     </DataTable>
+  );
+};
+
+// SelectionBar — действия над отмеченными записями. Видна, пока есть отметки.
+const SelectionBar = () => {
+  const translate = useTranslate();
+  const { selectedIds, onUnselectItems } = useListContext();
+  if (selectedIds.length === 0) return null;
+  return (
+    <Stack
+      direction="row"
+      spacing={1}
+      sx={{
+        alignItems: "center",
+        px: 1,
+        py: 1,
+        flexShrink: 0,
+        bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+      }}
+    >
+      <Tooltip title={translate("aim.list.unselect")}>
+        <IconButton aria-label={translate("aim.list.unselect")} onClick={() => onUnselectItems()}>
+          <CloseIcon />
+        </IconButton>
+      </Tooltip>
+      <Typography sx={{ flex: 1 }}>
+        {translate("aim.list.selected", { smart_count: selectedIds.length })}
+      </Typography>
+      <BulkActions />
+    </Stack>
   );
 };
 

@@ -37,12 +37,13 @@ const field = { variant: "outlined", size: "small", margin: "none" } as const;
 // На жёлтом и сером белый текст не читается (контраст ниже 3:1) — у них тёмный.
 // dark у warning и info темнее штатного: им окрашен текст контурных чипов на
 // белом фоне, и он должен держать контраст 4.5:1 для мелкого текста.
+const dark = { warning: darken(colors.WARNING, 0.45), info: darken(colors.INFO, 0.2) };
 const role = (main: string, contrastText: string = colors.CONTRAST_TEXT) => ({ main, contrastText });
 const basePalette: PaletteOptions = {
   secondary: role(colors.SECONDARY, colors.DARK_TEXT),
   error: role(colors.ERROR),
-  warning: { ...role(colors.WARNING, colors.DARK_TEXT), dark: darken(colors.WARNING, 0.45) },
-  info: { ...role(colors.INFO), dark: darken(colors.INFO, 0.2) },
+  warning: { ...role(colors.WARNING, colors.DARK_TEXT), dark: dark.warning },
+  info: { ...role(colors.INFO), dark: dark.info },
   success: role(colors.SUCCESS),
 };
 
@@ -86,17 +87,16 @@ const withAim = (base: RaThemeOptions, palette: PaletteOptions): RaThemeOptions 
       styleOverrides: {
         sizeSmall: { height: 20, fontSize: "0.75rem" },
         labelSmall: { paddingLeft: 7, paddingRight: 7 },
-        // На белом фоне контурный чип окрашен тёмным оттенком цвета: жёлтый
-        // и голубой текст на белом не читаются. В тёмной теме — штатный main.
-        outlinedWarning: ({ theme }: { theme: Theme }) =>
-          theme.palette.mode === "light"
-            ? { color: theme.palette.warning.dark, borderColor: theme.palette.warning.dark }
-            : {},
-        outlinedInfo: ({ theme }: { theme: Theme }) =>
-          theme.palette.mode === "light"
-            ? { color: theme.palette.info.dark, borderColor: theme.palette.info.dark }
-            : {},
       },
+      // На белом фоне контурный чип окрашен тёмным оттенком цвета: жёлтый
+      // и голубой текст на белом не читаются. В тёмной теме — штатный main.
+      variants:
+        palette.mode === "light"
+          ? (["warning", "info"] as const).map((color) => ({
+              props: { variant: "outlined" as const, color },
+              style: { color: dark[color], borderColor: dark[color] },
+            }))
+          : [],
     },
     // react-admin всегда рисует верхнюю панель с color="secondary", а secondary
     // у нас серый: в светлой теме панель — основного цвета. В тёмной MUI

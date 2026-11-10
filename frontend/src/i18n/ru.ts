@@ -73,6 +73,9 @@ const ru: TranslationMessages = {
       rebuilt: "Память перечитана: %{items} записей за %{duration}",
       empty: "Записей нет",
       emptyHint: "Выберите другой проект или измените фильтры",
+      selected:
+        "Отмечена %{smart_count} запись |||| Отмечены %{smart_count} записи |||| Отмечено %{smart_count} записей",
+      unselect: "Снять отметки",
     },
     preview: {
       empty: "Выберите запись",

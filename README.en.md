@@ -4,7 +4,7 @@
 
 A desktop app for the memory of Claude Code and Codex: browse it by project, search it, edit and delete entries, move facts from one agent to the other, and merge duplicates.
 
-> **Status:** phases 1 (browsing) and 2 (editing) are done; next is phase 3, moving facts between agents. The window shows Claude Code and Codex memory by project, with search; Claude facts can be edited, created and deleted, and Codex gets notes. Every write goes through a diff, a backup and a history with undo; writing needs `git`. Work follows the [plan](plan/README.md). How to run and check it: the commands section of [AGENTS.md](AGENTS.md). The plan and the developer docs are written in Russian.
+> **Status:** phases 1 (browsing), 2 (editing) and 3 (cross-agent) are done; next is phase 4, instructions and skills. The window shows Claude Code and Codex memory by project, with search; Claude facts can be edited, created and deleted, and Codex gets notes. Records move between agents, and the ones checked in the list can be merged and checked for contradictions, optionally with a draft from the model. Every write goes through a diff, a backup and a history with undo; writing needs `git`. Work follows the [plan](plan/README.md). How to run and check it: the commands section of [AGENTS.md](AGENTS.md). The plan and the developer docs are written in Russian.
 
 ## Why
 
