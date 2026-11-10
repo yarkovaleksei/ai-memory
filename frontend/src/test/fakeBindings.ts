@@ -342,6 +342,46 @@ export const plansService = {
     }),
   ),
   Unify: vi.fn(() => Promise.resolve(plan("instructions.unify", { project: "demo", moved: "1" }))),
+  SkillTargets: vi.fn(() =>
+    Promise.resolve([
+      {
+        key: "agents",
+        agent: "codex",
+        kind: "agents",
+        label: "",
+        dir: "/fx/.agents/skills/release-notes",
+        exists: false,
+        recommended: true,
+      },
+      {
+        key: "codex-home",
+        agent: "codex",
+        kind: "codex-home",
+        label: "",
+        dir: "/fx/.codex/skills/release-notes",
+        exists: true,
+        recommended: false,
+      },
+    ]),
+  ),
+  InstallSkill: vi.fn((_id: string, _key: string, link: boolean) =>
+    Promise.resolve({
+      ...plan("skill.install", { name: "release-notes", agent: "codex", mode: link ? "link" : "copy" }),
+      changes: [
+        {
+          path: "/fx/.agents/skills/release-notes",
+          beforeExists: false,
+          before: "",
+          afterExists: true,
+          after: "",
+          link: "/fx/.claude/skills/release-notes",
+        },
+      ],
+      warnings: [
+        { code: "plan.skill-link", params: { target: "/fx/.claude/skills/release-notes", agent: "codex" } },
+      ],
+    }),
+  ),
   CopySection: vi.fn(() =>
     Promise.resolve(
       plan("instructions.section-copy", {

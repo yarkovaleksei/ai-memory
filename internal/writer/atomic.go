@@ -8,9 +8,23 @@ import (
 )
 
 // apply записывает одно изменение: новое содержимое — атомарно через временный
-// файл в том же каталоге, удаление — os.Remove. Здесь единственные вызовы
+// файл в том же каталоге, удаление — os.Remove, симлинк — os.Symlink. Здесь единственные вызовы
 // записи и удаления по путям памяти агентов (AGENTS.md).
 func apply(c Change, mode fs.FileMode) error {
+	if c.Link != "" {
+		if err := os.MkdirAll(filepath.Dir(c.Path), 0o755); err != nil {
+			return Fail("write.failed", "path", c.Path, "error", err.Error())
+		}
+		if c.BeforeLink != "" {
+			if err := os.Remove(c.Path); err != nil {
+				return Fail("write.failed", "path", c.Path, "error", err.Error())
+			}
+		}
+		if err := os.Symlink(c.Link, c.Path); err != nil {
+			return Fail("write.failed", "path", c.Path, "error", err.Error())
+		}
+		return nil
+	}
 	if !c.AfterExists {
 		if err := os.Remove(c.Path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return Fail("write.failed", "path", c.Path, "error", err.Error())

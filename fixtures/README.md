@@ -35,6 +35,7 @@ export AI_MEMORY_DATA_DIR="$PWD/.task/ai-memory-data"
 | `.claude/projects/-home-me-projects-empty/` | Проект без каталога `memory/` |
 | `.claude-work/projects/-home-me-projects-demo/` | Тот же проект во втором профиле; `yarn-only.md` — дубль факта `prefer-yarn` |
 | `.claude/skills/`, `CLAUDE.md` в обоих профилях | Навык и глобальные инструкции (фаза 4) |
+| `.claude/skills/release-notes/scripts/last-tag.sh` | Исполняемый скрипт навыка: копия навыка в другого агента сохраняет права |
 | `.claude/rules/style.md` | Глобальное правило с frontmatter `paths` |
 | `.claude/skills/synced/bucket-1/` | Навык, синхронизированный с аккаунтом claude.ai: только чтение |
 
@@ -47,6 +48,7 @@ export AI_MEMORY_DATA_DIR="$PWD/.task/ai-memory-data"
 | `.codex/config.toml` | `[memories] version = "v2"`: активное поколение задано явно, баз Codex в фикстурах нет (Q3) |
 | `.codex/memories/` | Заброшенное поколение v1: `MEMORY.md`, `raw_memories.md`, навык из памяти, старая заметка |
 | `.codex/skills/`, `.codex/AGENTS.md` | Навык и глобальные инструкции (фаза 4) |
+| `.codex/skills/lint-fix/agents/openai.yaml` | Оформление навыка для Codex: Claude его не читает — предупреждение при установке в Claude |
 | `.codex/skills/.system/plan-helper/` | Системный навык Codex: только чтение |
 | `.codex/skills/no-description/` | Навык без `description`: Codex его не загрузит — нужно предупреждение |
 

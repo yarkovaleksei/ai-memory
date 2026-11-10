@@ -256,6 +256,13 @@ const ru: TranslationMessages = {
         "same-file": "Раздел уже в этом файле — выберите другой",
         "target-invalid": "Неизвестно, куда вставить раздел — выберите файл из списка",
       },
+      skill: {
+        "not-skill": "«%{title}» — не навык",
+        exists: "Навык уже есть в %{dir}",
+        "target-invalid": "Неизвестно, куда ставить навык — выберите место из списка",
+        "too-large":
+          "Навык слишком велик для копии: больше %{files} файлов или %{bytes} байт. Поставьте его симлинком.",
+      },
       unify: {
         already: "%{file} уже импортирует AGENTS.md",
         nothing: "У проекта нет ни CLAUDE.md, ни AGENTS.md",
@@ -300,6 +307,7 @@ const ru: TranslationMessages = {
       "instructions.section-copy": "Копия правила «%{heading}» из %{from} в %{to}",
       "instructions.section-move": "Перенос правила «%{heading}» из %{from} в %{to}",
       "instructions.unify": "AGENTS.md — основной в проекте %{project}",
+      "skill.install": "Навык «%{name}» в %{agent}",
       revert: "Откат: %{op}",
     },
     opKinds: {
@@ -320,6 +328,7 @@ const ru: TranslationMessages = {
       "instructions.section-copy": "копия правила",
       "instructions.section-move": "перенос правила",
       "instructions.unify": "AGENTS.md основным",
+      "skill.install": "установка навыка",
       revert: "откат",
     },
     planWarnings: {
@@ -339,9 +348,38 @@ const ru: TranslationMessages = {
           "%{file} — правило с paths: Claude Code загрузит его, только когда открыты подходящие файлы.",
         "codex-size":
           "Файл станет %{size} байт, а Codex читает инструкции проекта только до %{limit} байт: конец обрежется.",
+        "skill-fields-ignored":
+          "Поля frontmatter, которых %{agent} не понимает и молча проигнорирует: %{fields}.",
+        "skill-no-description":
+          "В SKILL.md нет description: Codex такой навык не загрузит. Допишите описание после установки.",
+        "skill-name-long": "Имя «%{name}» длиннее 64 символов: Codex его не примет.",
+        "skill-openai-yaml": "agents/openai.yaml — оформление навыка для Codex: Claude Code его не читает.",
+        "skill-symlinks-skipped": "Симлинки внутри навыка не копируются: %{files}.",
+        "skill-link":
+          "Навык станет общим: оба агента будут читать каталог %{target}, и правка затронет обоих.",
         "claude-imports-agents":
           "Новый %{file} начинается с @AGENTS.md: пока CLAUDE.md нет, Claude Code читает AGENTS.md сам, а с CLAUDE.md перестанет — импорт сохраняет эти правила.",
       },
+    },
+    skill: {
+      title: "Навык «%{title}» в %{agent}",
+      target: "Куда",
+      targets: {
+        agents: "~/.agents/skills — общий каталог навыков, его читает Codex",
+        "codex-home": "CODEX_HOME/skills — устаревший путь Codex",
+        "project-agents": ".agents/skills проекта — навыки проекта для Codex",
+        "project-claude": ".claude/skills проекта — навыки проекта для Claude Code",
+        profile: "Профиль Claude %{label}",
+      },
+      recommended: "рекомендуется",
+      exists: "навык с таким именем уже есть",
+      mode: "Как поставить",
+      copy: "Копией",
+      link: "Симлинком",
+      copyHelp: "Каталог навыка скопируется целиком: дальше копии живут независимо. Откат удалит копию.",
+      linkHelp:
+        "В цели появится симлинк на каталог навыка: оба агента будут читать один и тот же навык, и правка изменит его у обоих.",
+      noTargets: "Ставить некуда: у второго агента нет каталога навыков этого уровня.",
     },
     unify: {
       action: "Сделать AGENTS.md основным",
@@ -396,6 +434,8 @@ const ru: TranslationMessages = {
       preview: "Показать изменения",
       applied: "Записано. Операцию можно откатить в истории.",
       confirm: "Понимаю, записать всё равно",
+      link: "Симлинк на %{target}",
+      unlink: "Удаляется симлинк на %{target}",
       created: "новый",
       deleted: "удаляется",
       changed: "изменён",
@@ -403,6 +443,10 @@ const ru: TranslationMessages = {
     actions: {
       edit: "Изменить",
       copySection: "Перенести правило",
+      installSkill: {
+        claude: "Установить в Claude Code",
+        codex: "Установить в Codex",
+      },
       delete: "Удалить",
       fixIndex: "Исправить индекс",
       editNote: "Изменить заметку",

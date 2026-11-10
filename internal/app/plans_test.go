@@ -93,7 +93,15 @@ func copyDir(t *testing.T, src, dst string) {
 			out.Close()
 			return err
 		}
-		return out.Close()
+		if err := out.Close(); err != nil {
+			return err
+		}
+		// Права нужны тестам навыков: скрипт должен остаться исполняемым.
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+		return os.Chmod(target, fi.Mode().Perm())
 	})
 	if err != nil {
 		t.Fatal(err)

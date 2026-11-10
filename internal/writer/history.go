@@ -53,11 +53,19 @@ func (w *Writer) PlanRevert(ctx context.Context, commit string) (Plan, error) {
 		if err != nil {
 			return Plan{}, Fail("backup.failed", "error", err.Error())
 		}
-		changes = append(changes, Change{
+		c := Change{
 			Path:         path,
 			BeforeExists: after.Exists, Before: string(after.Content),
 			AfterExists: before.Exists, After: string(before.Content),
-		})
+		}
+		if l, ok := m.Links[path]; ok {
+			// В копии бэкапа — текст цели симлинка, а не содержимое.
+			c.Before, c.After, c.BeforeLink, c.Link = "", "", l.After, l.Before
+		}
+		for _, e := range m.Exec {
+			c.Exec = c.Exec || e == path
+		}
+		changes = append(changes, c)
 	}
 	return NewPlan(Op{Code: OpRevert, Params: map[string]string{"commit": commit, "op": m.Op.Code}}, changes...), nil
 }

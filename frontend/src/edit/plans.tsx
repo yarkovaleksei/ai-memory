@@ -29,19 +29,34 @@ import { DiffView } from "./DiffView";
 // Запись в два шага (plan/architecture.md): функция строит план в Go, диалог
 // показывает diff каждого файла, и только «Записать» применяет план по его ID.
 
+// useHumanParams — параметры из Go для словаря: код агента — его имя.
+const useHumanParams = () => {
+  const translate = useTranslate();
+  return useCallback(
+    (params?: Record<string, string | undefined> | null) => {
+      const p = params ?? {};
+      return p.agent === "claude" || p.agent === "codex"
+        ? { ...p, agent: translate(`aim.agents.${p.agent}`) }
+        : p;
+    },
+    [translate],
+  );
+};
+
 // useOpText — текст операции по коду и параметрам из Go.
 export const useOpText = () => {
   const translate = useTranslate();
+  const human = useHumanParams();
   return useCallback(
     (op: Op) => {
-      const params = op.params ?? {};
+      const params = human(op.params ?? {});
       if (op.code === "revert") {
         const what = translate(`aim.opKinds.${params.op}`, { _: params.op ?? "" });
         return translate("aim.ops.revert", { op: what });
       }
       return translate(`aim.ops.${op.code}`, { ...params, _: op.code });
     },
-    [translate],
+    [translate, human],
   );
 };
 
@@ -150,6 +165,7 @@ interface PlanDialogProps {
 const PlanDialog = ({ plan, busy, onCancel, onApply }: PlanDialogProps) => {
   const translate = useTranslate();
   const opText = useOpText();
+  const human = useHumanParams();
   const hint = useConsolidationHint();
   const changes = useMemo(() => plan.changes ?? [], [plan]);
   // Заметки Codex — единственное, что ai-memory пишет в Codex (ADR-002): по их
@@ -172,7 +188,7 @@ const PlanDialog = ({ plan, busy, onCancel, onApply }: PlanDialogProps) => {
           {warnings.map((w, i) => (
             <Alert key={`${w.code}-${i}`} severity="warning">
               <Stack spacing={0.5}>
-                <span>{translate(`aim.planWarnings.${w.code}`, { ...w.params, _: w.code })}</span>
+                <span>{translate(`aim.planWarnings.${w.code}`, { ...human(w.params), _: w.code })}</span>
                 {w.confirm && (
                   <FormControlLabel
                     control={
@@ -202,7 +218,16 @@ const PlanDialog = ({ plan, busy, onCancel, onApply }: PlanDialogProps) => {
                   {c.path}
                 </Typography>
               </Stack>
-              <DiffView change={c} />
+              {c.link || c.beforeLink ? (
+                // Симлинк каталога навыка: содержимого нет, есть цель (ADR-023).
+                <Typography variant="body2" sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>
+                  {c.link
+                    ? translate("aim.plan.link", { target: c.link })
+                    : translate("aim.plan.unlink", { target: c.beforeLink ?? "" })}
+                </Typography>
+              ) : (
+                <DiffView change={c} />
+              )}
             </Stack>
           ))}
         </Stack>

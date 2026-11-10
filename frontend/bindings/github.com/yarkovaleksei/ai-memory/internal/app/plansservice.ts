@@ -94,6 +94,13 @@ export function ForgetNote(title: string, body: string): $CancellablePromise<wri
 }
 
 /**
+ * InstallSkill строит план установки навыка в цель key копией или симлинком.
+ */
+export function InstallSkill(itemID: string, key: string, link: boolean): $CancellablePromise<writer$0.Plan> {
+    return $Call.ByID(2314026924, itemID, key, link);
+}
+
+/**
  * InstructionSections режет файл инструкций на разделы. Читает диск, а не
  * индекс: номера разделов должны совпасть с тем, что увидит план.
  */
@@ -118,6 +125,14 @@ export function Merge(req: $models.MergeRequest): $CancellablePromise<writer$0.P
  */
 export function SectionTargets(itemID: string): $CancellablePromise<$models.SectionTarget[] | null> {
     return $Call.ByID(959824727, itemID);
+}
+
+/**
+ * SkillTargets — места навыков другого агента того же уровня: глобальные
+ * для глобального навыка, каталог проекта для проектного.
+ */
+export function SkillTargets(itemID: string): $CancellablePromise<$models.SkillTarget[] | null> {
+    return $Call.ByID(953368693, itemID);
 }
 
 /**

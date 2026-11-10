@@ -14,6 +14,20 @@ export interface Change {
     "before": string;
     "afterExists": boolean;
     "after": string;
+
+    /**
+     * Link — после записи путь станет симлинком на Link (каталог навыка,
+     * ADR-023); BeforeLink — сейчас путь — симлинк на BeforeLink. Содержимого
+     * у таких изменений нет: writer создаёт и удаляет только сам симлинк и
+     * никогда не пишет через него.
+     */
+    "link"?: string;
+    "beforeLink"?: string;
+
+    /**
+     * Exec — создаваемый файл исполняемый: скрипт копируемого навыка.
+     */
+    "exec"?: boolean;
 }
 
 /**

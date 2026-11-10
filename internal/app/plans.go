@@ -486,7 +486,7 @@ func (s *HistoryService) Revert(ctx context.Context, commit, cancelMessage strin
 	if home := filepath.FromSlash(s.e.rt.Config().CodexHome); home != "" {
 		for i, c := range p.Changes {
 			if c.AfterExists || !strings.HasPrefix(c.Path, home+string(filepath.Separator)) ||
-				codex.IsInstructionsOrSkill(home, c.Path) {
+				codex.IsInstructionsOrSkill(home, c.Path) || c.BeforeLink != "" && codex.IsSkillDir(home, c.Path) {
 				continue
 			}
 			if !codex.IsNote(home, codex.GenV2, c.Path) && !codex.IsNote(home, codex.GenV1, c.Path) {

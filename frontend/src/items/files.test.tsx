@@ -306,3 +306,26 @@ describe("AGENTS.md основным", () => {
     }
   });
 });
+
+describe("установка навыка в другого агента", () => {
+  it("навык Claude ставится в Codex симлинком через план", async () => {
+    render(<App />);
+    fireEvent.mouseDown(await screen.findByRole("combobox", { name: "Раздел" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Навыки" }));
+    const pane = await openPreview("commit-message");
+    fireEvent.click(pane.getByRole("button", { name: "Установить в Codex" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Навык «commit-message» в Codex" }));
+    const recommended = await dialog.findByRole("radio", { name: /~\/\.agents\/skills.*рекомендуется/ });
+    expect(recommended).toBeChecked();
+    // Место, где навык с таким именем уже есть, не выбрать.
+    expect(dialog.getByRole("radio", { name: /устаревший путь Codex.*уже есть/ })).toBeDisabled();
+    fireEvent.click(dialog.getByRole("button", { name: "Симлинком" }));
+    expect(dialog.getByText(/правка изменит его у обоих/)).toBeInTheDocument();
+    fireEvent.click(dialog.getByRole("button", { name: "Показать изменения" }));
+
+    const planDialog = within(await screen.findByRole("dialog", { name: "Навык «release-notes» в Codex" }));
+    expect(plansService.InstallSkill).toHaveBeenLastCalledWith("i-skill", "agents", true);
+    expect(planDialog.getByText("Симлинк на /fx/.claude/skills/release-notes")).toBeInTheDocument();
+    expect(planDialog.getByText(/Навык станет общим/)).toBeInTheDocument();
+  });
+});

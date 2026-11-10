@@ -16,7 +16,8 @@ import (
 // Guard — защита памяти Codex для writer'а (ADR-002, ADR-020):
 //   - под CODEX_HOME меняются только *.md в extensions/ad_hoc/notes/ активного
 //     поколения, а из того, что не память, — AGENTS.md, AGENTS.override.md и
-//     пользовательские навыки в skills/ (кроме системных skills/.system);
+//     пользовательские навыки в skills/ (кроме системных skills/.system),
+//     в том числе симлинк каталога навыка;
 //     сгенерированные файлы Codex — никогда;
 //   - файл заметки не удаляется никогда; файл инструкций или навыка удаляет
 //     только откат операции, которая его создала (ADR-021);
@@ -40,7 +41,7 @@ func (g Guard) Acquire(ctx context.Context, p writer.Plan) (func(), error) {
 		if !within(home, c.Path) {
 			continue
 		}
-		if instructionsOrSkill(home, c.Path) {
+		if instructionsOrSkill(home, c.Path) || (c.Link != "" || c.BeforeLink != "") && skillDir(home, c.Path) {
 			// Не память: консолидация их не трогает, блокировка не нужна.
 			// Удаляет их только откат: он возвращает состояние из снимка, то
 			// есть убирает файл, который создала сама ai-memory (ADR-021).
@@ -101,6 +102,16 @@ func (g Guard) jobRunning(ctx context.Context, dbPath string) bool {
 	}
 	return status == "running" && lease.Valid && lease.Int64 > now().Unix()
 }
+
+// skillDir — каталог пользовательского навыка CODEX_HOME/skills/<навык>:
+// туда ставится симлинк навыка другого агента (ADR-023).
+func skillDir(home, p string) bool {
+	base := filepath.Base(p)
+	return filepath.Dir(p) == filepath.Join(home, "skills") && !strings.HasPrefix(base, ".")
+}
+
+// IsSkillDir — то же для сервиса отката.
+func IsSkillDir(home, p string) bool { return skillDir(filepath.Clean(home), filepath.Clean(p)) }
 
 // IsInstructionsOrSkill — файл инструкций или пользовательского навыка под
 // CODEX_HOME, а не память: его удаление при откате не подменяется заметкой.

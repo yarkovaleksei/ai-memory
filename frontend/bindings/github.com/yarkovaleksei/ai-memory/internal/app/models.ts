@@ -296,6 +296,35 @@ export interface SettingsView {
 }
 
 /**
+ * SkillTarget — куда можно поставить навык.
+ */
+export interface SkillTarget {
+    "key": string;
+    "agent": model$0.Agent;
+
+    /**
+     * ключ без ID хранилища: для подписи в интерфейсе
+     */
+    "kind": string;
+    "label": string;
+
+    /**
+     * только для показа
+     */
+    "dir": string;
+
+    /**
+     * навык с таким именем там уже есть
+     */
+    "exists": boolean;
+
+    /**
+     * основной путь агента
+     */
+    "recommended": boolean;
+}
+
+/**
  * TransferLink — связь записи с переносом: Direction «to» — эта запись
  * источник, другая сторона — копия; «from» — эта запись получена переносом.
  */

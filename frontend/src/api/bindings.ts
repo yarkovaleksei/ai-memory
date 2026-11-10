@@ -23,6 +23,7 @@ export type {
   SectionTarget,
   SectionsDraft,
   SettingsView,
+  SkillTarget,
   TransferLink,
 } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/app";
 export { Agent } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/model";

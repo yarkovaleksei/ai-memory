@@ -14,6 +14,7 @@ import { FileEditor } from "./FileEditor";
 import { MergeDialog } from "./MergeDialog";
 import { NoteEditor, type NoteTarget } from "./NoteEditor";
 import { SectionDialog } from "./SectionDialog";
+import { SkillDialog, otherAgent } from "./SkillDialog";
 import { UnifyHint } from "./UnifyDialog";
 import { useWritableAgents } from "./agents";
 import { TransferDialog, transferTargets } from "./TransferDialog";
@@ -55,6 +56,7 @@ export const ItemActions = ({ item }: { item: Item }) => {
   const [transfer, setTransfer] = useState(false);
   const [file, setFile] = useState(false);
   const [section, setSection] = useState(false);
+  const [skill, setSkill] = useState(false);
   const agents = useWritableAgents();
 
   const indexIssue = (item.warnings ?? []).some((w) => w.code.startsWith("claude.index."));
@@ -85,6 +87,10 @@ export const ItemActions = ({ item }: { item: Item }) => {
   if (item.kind === "instructions") {
     add("copySection", "aim.actions.copySection", () => setSection(true));
   }
+  // Навык ставится в другого агента копией или симлинком (ADR-023).
+  if (item.kind === "skill") {
+    add("installSkill", `aim.actions.installSkill.${otherAgent(item)}`, () => setSkill(true));
+  }
   if (item.agent === "claude" && indexIssue) {
     add("fix", "aim.actions.fixIndex", () => void runPlan(() => PlansService.FixIndex(item.id)));
   }
@@ -114,6 +120,7 @@ export const ItemActions = ({ item }: { item: Item }) => {
       {transfer && <TransferDialog item={item} onClose={() => setTransfer(false)} />}
       {file && <FileEditor item={item} onClose={() => setFile(false)} />}
       {section && <SectionDialog item={item} onClose={() => setSection(false)} />}
+      {skill && <SkillDialog item={item} onClose={() => setSkill(false)} />}
     </>
   );
 };

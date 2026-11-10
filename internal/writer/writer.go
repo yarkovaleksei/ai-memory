@@ -30,7 +30,17 @@ type Change struct {
 	Before       string `json:"before"`
 	AfterExists  bool   `json:"afterExists"`
 	After        string `json:"after"`
+	// Link — после записи путь станет симлинком на Link (каталог навыка,
+	// ADR-023); BeforeLink — сейчас путь — симлинк на BeforeLink. Содержимого
+	// у таких изменений нет: writer создаёт и удаляет только сам симлинк и
+	// никогда не пишет через него.
+	Link       string `json:"link,omitempty"`
+	BeforeLink string `json:"beforeLink,omitempty"`
+	// Exec — создаваемый файл исполняемый: скрипт копируемого навыка.
+	Exec bool `json:"exec,omitempty"`
 }
+
+func (c Change) isLink() bool { return c.Link != "" || c.BeforeLink != "" }
 
 // Op — что делает план, кодом с параметрами: интерфейс и история собирают
 // текст по словарю (ADR-008).
@@ -140,6 +150,15 @@ type opMeta struct {
 	Plan  string   `json:"plan"`
 	Op    Op       `json:"op"`
 	Paths []string `json:"paths"`
+	// Links — симлинки до и после операции по путям: в копии файлов бэкапа
+	// хранится только текст цели, а откату нужно знать, что это симлинк.
+	Links map[string]linkState `json:"links,omitempty"`
+	Exec  []string             `json:"exec,omitempty"` // пути исполняемых файлов
+}
+
+type linkState struct {
+	Before string `json:"before,omitempty"`
+	After  string `json:"after,omitempty"`
 }
 
 // Apply применяет план. Либо все файлы записаны и операция в истории, либо на
@@ -182,10 +201,23 @@ func (w *Writer) Apply(ctx context.Context, p Plan) (Result, error) {
 	before := make([]backup.File, len(p.Changes))
 	after := make([]backup.File, len(p.Changes))
 	paths := make([]string, len(p.Changes))
+	meta := opMeta{Plan: p.ID, Op: p.Op, Paths: paths}
 	for i, c := range p.Changes {
-		before[i] = backup.File{Path: c.Path, Exists: c.BeforeExists, Content: []byte(c.Before)}
-		after[i] = backup.File{Path: c.Path, Exists: c.AfterExists, Content: []byte(c.After)}
+		before[i] = backup.File{Path: c.Path, Exists: c.BeforeExists, Content: []byte(c.Before + c.BeforeLink)}
+		after[i] = backup.File{Path: c.Path, Exists: c.AfterExists, Content: []byte(c.After + c.Link)}
 		paths[i] = c.Path
+		if c.isLink() {
+			if meta.Links == nil {
+				meta.Links = map[string]linkState{}
+			}
+			meta.Links[c.Path] = linkState{Before: c.BeforeLink, After: c.Link}
+		}
+		if c.Exec {
+			meta.Exec = append(meta.Exec, c.Path)
+			if !c.BeforeExists {
+				modes[i] = 0o755
+			}
+		}
 	}
 	if _, err := w.Backup.Record(ctx, before, "Снимок перед "+p.Op.Code, nil); err != nil {
 		return Result{}, Fail("backup.failed", "error", err.Error())
@@ -201,7 +233,7 @@ func (w *Writer) Apply(ctx context.Context, p Plan) (Result, error) {
 		}
 	}
 
-	commit, err := w.Backup.Record(ctx, after, p.Op.Code, opMeta{Plan: p.ID, Op: p.Op, Paths: paths})
+	commit, err := w.Backup.Record(ctx, after, p.Op.Code, meta)
 	if err != nil {
 		// Файлы уже записаны, снимок «до» в бэкапе есть; нет только записи в истории.
 		return Result{}, Fail("backup.record-failed", "error", err.Error())
@@ -210,7 +242,24 @@ func (w *Writer) Apply(ctx context.Context, p Plan) (Result, error) {
 }
 
 func invert(c Change) Change {
-	return Change{Path: c.Path, BeforeExists: c.AfterExists, Before: c.After, AfterExists: c.BeforeExists, After: c.Before}
+	return Change{Path: c.Path, BeforeExists: c.AfterExists, Before: c.After, AfterExists: c.BeforeExists, After: c.Before,
+		Link: c.BeforeLink, BeforeLink: c.Link, Exec: c.Exec}
+}
+
+// validLink: симлинк создаётся на месте пустоты и удаляется целиком, без
+// содержимого; цель — абсолютный путь.
+func validLink(c Change) bool {
+	switch {
+	case c.Before != "" || c.After != "":
+		return false
+	case c.Link != "" && (!c.AfterExists || !filepath.IsAbs(c.Link)):
+		return false
+	case c.BeforeLink != "" && !c.BeforeExists:
+		return false
+	case c.Link == "" && c.AfterExists, c.BeforeLink == "" && c.BeforeExists:
+		return false // симлинк вместо файла или файл вместо симлинка — не умеем
+	}
+	return true
 }
 
 // validatePaths: абсолютный путь, без повторов, внутри разрешённых корней, сам
@@ -226,20 +275,32 @@ func (w *Writer) validatePaths(p Plan) error {
 			return Fail("write.path-duplicate", "path", c.Path)
 		}
 		seen[key] = true
+		if c.isLink() && !validLink(c) {
+			return Fail("write.path-invalid", "path", c.Path)
+		}
 		if fi, err := os.Lstat(c.Path); err == nil && fi.Mode()&fs.ModeSymlink != 0 {
-			return Fail("write.symlink", "path", c.Path)
+			// Через симлинк не пишем никогда; удалить можно только сам симлинк,
+			// который план ожидает увидеть.
+			if c.BeforeLink == "" {
+				return Fail("write.symlink", "path", c.Path)
+			}
 		} else if err == nil && !fi.Mode().IsRegular() {
 			return Fail("write.not-regular", "path", c.Path)
 		}
-		if !w.insideRoots(c.Path) {
+		// Место симлинка проверяется по его каталогу: сам симлинк ведёт за корни.
+		real := resolveExisting(c.Path)
+		if c.isLink() {
+			real = filepath.Join(resolveExisting(filepath.Dir(c.Path)), filepath.Base(c.Path))
+		}
+		if !w.insideRoots(real) {
 			return Fail("write.outside-roots", "path", c.Path)
 		}
 	}
 	return nil
 }
 
-func (w *Writer) insideRoots(path string) bool {
-	real := resolveExisting(path)
+// insideRoots: real — путь с уже раскрытыми симлинками.
+func (w *Writer) insideRoots(real string) bool {
 	for _, root := range w.Roots {
 		r := resolveExisting(filepath.Clean(filepath.FromSlash(root)))
 		if within(pathKey(r), pathKey(real)) {
@@ -282,6 +343,23 @@ func pathKey(p string) string {
 
 // checkState сверяет диск с тем, что видел пользователь, и возвращает права файла.
 func checkState(c Change) (fs.FileMode, error) {
+	if c.isLink() {
+		fi, err := os.Lstat(c.Path)
+		switch {
+		case c.BeforeLink == "" && err == nil:
+			return 0, Fail("write.conflict", "path", c.Path, "reason", "created")
+		case c.BeforeLink == "":
+			return 0, nil
+		case err != nil:
+			return 0, Fail("write.conflict", "path", c.Path, "reason", "deleted")
+		case fi.Mode()&fs.ModeSymlink == 0:
+			return 0, Fail("write.conflict", "path", c.Path, "reason", "changed")
+		}
+		if t, err := os.Readlink(c.Path); err != nil || t != c.BeforeLink {
+			return 0, Fail("write.conflict", "path", c.Path, "reason", "changed")
+		}
+		return 0, nil
+	}
 	data, err := os.ReadFile(c.Path)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):

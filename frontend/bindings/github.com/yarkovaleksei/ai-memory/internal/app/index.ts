@@ -31,5 +31,6 @@ export type {
     SectionTarget,
     SectionsDraft,
     SettingsView,
+    SkillTarget,
     TransferLink
 } from "./models.js";
