@@ -1,98 +1,140 @@
 # Архитектура
 
+Стек и причины выбора — в [ADR-006](decisions.md#adr-006-стек-go--wails-v3-react-admin-yarn-4).
+
 ## Принципы
 
 1. **Родные хранилища — источник правды.** Своей памяти у системы нет: индекс и кэш можно в любой момент удалить и пересобрать с диска.
 2. **По умолчанию только чтение.** Запись включается явно и всегда идёт через предпросмотр diff.
 3. **Ничего не теряем.** Перед каждой записью — снимок затрагиваемых файлов, после — коммит в собственный репозиторий бэкапов. Любую операцию можно откатить.
 4. **Пишем так, как агент ожидает.** Claude — файлы фактов и индекс `MEMORY.md`; Codex — только ad-hoc-заметки (см. [storage-formats.md](storage-formats.md)).
-5. **Локально.** Сервер слушает только `127.0.0.1`, данные никуда не уходят. Исключение — LLM-операции, которые явно вызывает пользователь, и они идут через установленные CLI агентов.
+5. **Локально.** Это десктоп-приложение без сетевого порта, данные никуда не уходят. Исключение — LLM-операции, которые явно вызывает пользователь, и они идут через установленные CLI агентов.
 
 ## Компоненты
 
 ```
-┌──────────────────────── apps/web ────────────────────────┐
-│ React + react-admin + MUI                                │
-│ дерево проектов │ список записей │ редактор + diff       │
-└───────────────────────────┬──────────────────────────────┘
-                            │ HTTP (REST, 127.0.0.1)
-┌───────────────────────── apps/server ────────────────────┐
-│ Hono: REST API, проверка Origin, наблюдение за файлами   │
-└───────────────────────────┬──────────────────────────────┘
-                            │
-┌───────────────────────── packages/core ──────────────────┐
-│ модель MemoryItem / Project                              │
-│ адаптеры: claude, codex  →  чтение, план записи          │
-│ индекс (SQLite FTS5)   writer (снимок → запись → коммит) │
-│ llm (claude -p / codex exec) для объединения             │
-└───────────────────────────┬──────────────────────────────┘
-                            │ файловая система
-       ~/.claude*/projects/*/memory       ~/.codex/memories_v2
+┌──────────────────────────── frontend/ ───────────────────────────┐
+│ React + react-admin + MUI, dataProvider поверх привязок Wails    │
+│ дерево проектов │ список записей │ редактор + diff               │
+└───────────────────────────────┬──────────────────────────────────┘
+                                │ привязки Wails (вызовы) и события
+┌──────────────────────────── internal/app ────────────────────────┐
+│ сервисы Wails: Projects, Items, Plans, History                   │
+│ тонкий слой: преобразование типов, события «индекс обновлён»     │
+└───────────────────────────────┬──────────────────────────────────┘
+                                │ обычные вызовы Go
+┌──────────────────────────── ядро internal/ ──────────────────────┐
+│ model        Source, Project, MemoryItem                         │
+│ adapter/claude, adapter/codex   чтение и план записи             │
+│ index        SQLite FTS5          watch     fsnotify             │
+│ writer       план → снимок → атомарная запись → коммит бэкапа    │
+│ backup       git-репозиторий бэкапов    llm   claude -p, codex exec │
+└───────────────────────────────┬──────────────────────────────────┘
+                                │ файловая система
+        ~/.claude*/projects/*/memory          ~/.codex/memories_v2
+
+cmd/ai-memory-mcp  — отдельный бинарь, MCP-сервер поверх того же ядра (фаза 4)
 ```
 
-Позже рядом с сервером появится `packages/mcp` — MCP-сервер поверх того же `core` ([фаза 4](phases/04-mcp-bridge.md)).
+Правило зависимостей: ядро не импортирует `internal/app`, Wails и ничего из `frontend/`. Весь Wails-специфичный код живёт в `internal/app` и `main.go`.
+
+## Структура репозитория
+
+```
+main.go                 запуск Wails-приложения
+internal/
+  model/                типы ядра
+  adapter/claude/       адаптер Claude Code
+  adapter/codex/        адаптер Codex
+  index/                индекс и поиск
+  watch/                наблюдение за файлами
+  writer/               планы записи и их применение
+  backup/               репозиторий бэкапов
+  llm/                  вызовы CLI агентов (фаза 3)
+  config/               корни памяти, переменные окружения
+  app/                  сервисы Wails
+cmd/ai-memory-mcp/      MCP-сервер (фаза 4)
+frontend/               Vite + React + react-admin, yarn 4
+fixtures/               поддельные каталоги памяти для тестов
+build/                  ресурсы сборки Wails
+Taskfile.yml            задачи сборки и проверок
+```
 
 ## Модель данных
 
-```ts
-type Agent = 'claude' | 'codex';
+```go
+type Agent string // "claude" | "codex"
 
-interface Source {
-  agent: Agent;
-  profile: string;          // 'claude:~/.claude', 'claude:~/.claude-work', 'codex:v2'
-  root: string;             // абсолютный путь корня памяти
+// Source — одно хранилище памяти: профиль Claude или поколение памяти Codex.
+type Source struct {
+    Agent   Agent
+    Profile string // "claude:~/.claude", "claude:~/.claude-work", "codex:v2"
+    Root    string // абсолютный путь корня памяти
 }
 
-interface Project {
-  id: string;               // нормализованный абсолютный путь или 'global'
-  path: string | null;      // null для глобальной памяти
-  label: string;
-  sources: Source[];        // в каких хранилищах есть память этого проекта
+// Project объединяет память одного проекта из всех хранилищ.
+type Project struct {
+    ID      string  // нормализованный абсолютный путь или "global"
+    Path    *string // nil для глобальной памяти
+    Label   string
+    Sources []Source
 }
 
-type ItemKind =
-  | 'claude-fact'           // файл факта Claude
-  | 'claude-index'          // MEMORY.md
-  | 'codex-summary-section' // раздел memory_summary.md
-  | 'codex-rollout'         // rollout_summaries/*.md
-  | 'codex-adhoc-note';     // extensions/ad_hoc/notes/*.md
+type ItemKind string
 
-interface MemoryItem {
-  id: string;               // стабильный: agent + относительный путь (+ якорь раздела)
-  source: Source;
-  projectId: string;
-  kind: ItemKind;
-  type?: 'user' | 'feedback' | 'project' | 'reference';
-  title: string;
-  description?: string;
-  body: string;             // Markdown без frontmatter
-  frontmatter?: Record<string, unknown>;
-  links: string[];          // [[slug]] и ссылки на rollout_summaries
-  file: string;             // абсолютный путь
-  anchor?: string;          // для разделов внутри файла
-  mtime: string;
-  hash: string;             // для оптимистичной блокировки при записи
-  write: 'direct' | 'via-note' | 'none';
+const (
+    KindClaudeFact     ItemKind = "claude-fact"           // файл факта Claude
+    KindClaudeIndex    ItemKind = "claude-index"          // MEMORY.md
+    KindCodexSection   ItemKind = "codex-summary-section" // раздел memory_summary.md
+    KindCodexRollout   ItemKind = "codex-rollout"         // rollout_summaries/*.md
+    KindCodexAdHocNote ItemKind = "codex-adhoc-note"      // extensions/ad_hoc/notes/*.md
+)
+
+// WriteMode показывает, что интерфейс может сделать с записью.
+type WriteMode string
+
+const (
+    WriteDirect  WriteMode = "direct"   // факты Claude, ad-hoc-заметки
+    WriteViaNote WriteMode = "via-note" // сгенерированное Codex: только через новую заметку
+    WriteNone    WriteMode = "none"     // MEMORY.md: его ведёт writer
+)
+
+type MemoryItem struct {
+    ID          string // стабильный: агент + относительный путь (+ якорь раздела)
+    Source      Source
+    ProjectID   string
+    Kind        ItemKind
+    Type        string // user | feedback | project | reference, если есть
+    Title       string
+    Description string
+    Body        string     // Markdown без frontmatter
+    Frontmatter *yaml.Node // исходный узел: сохраняет порядок и неизвестные поля
+    Links       []string   // [[slug]] и ссылки на rollout_summaries
+    File        string     // абсолютный путь
+    Anchor      string     // для разделов внутри файла
+    ModTime     time.Time
+    Hash        string // для оптимистичной блокировки при записи
+    Write       WriteMode
+    Warnings    []string // неожиданная структура, расхождение с индексом
 }
 ```
 
-`write` показывает в интерфейсе, что можно сделать с записью: Claude-факты и ad-hoc-заметки — `direct`, сгенерированное Codex — `via-note`, индекс `MEMORY.md` — `none` (его ведёт сам writer).
+Во фронтенд `MemoryItem` уходит через DTO в `internal/app`: без `yaml.Node`, frontmatter — уже разобранным объектом.
 
 ## Адаптеры
 
 У каждого адаптера одинаковый контракт:
 
-```ts
-interface Adapter {
-  discover(): Promise<Source[]>;                       // найти корни
-  scan(source: Source): AsyncIterable<MemoryItem>;     // прочитать всё
-  resolveProject(source: Source, raw: string): Promise<string>;
-  planWrite(op: WriteOp): Promise<WritePlan>;          // что изменится, без записи
+```go
+type Adapter interface {
+    Discover(ctx context.Context) ([]Source, error)                      // найти корни
+    Scan(ctx context.Context, src Source, emit func(MemoryItem)) error   // прочитать всё
+    PlanWrite(ctx context.Context, op WriteOp) (WritePlan, error)        // что изменится, без записи
 }
 ```
 
-- **Claude.** Обходит профили, парсит frontmatter (терпимо к вариантам), восстанавливает путь проекта по `cwd` из jsonl, сверяет индекс `MEMORY.md` с файлами и показывает расхождения (факт без строки в индексе, строка без файла).
-- **Codex.** Читает активное поколение (по умолчанию v2, v1 — опционально, только чтение), режет `memory_summary.md` на разделы, читает заголовки `rollout_summaries`, перечисляет ad-hoc-заметки. SQLite открывает только на чтение и только при необходимости (счётчики `usage_count`, `last_usage`).
+- **Claude.** Обходит профили, парсит frontmatter (терпимо к вариантам), восстанавливает путь проекта по `cwd` из jsonl, сверяет индекс `MEMORY.md` с файлами и записывает расхождения в `Warnings` (факт без строки в индексе, строка без файла).
+- **Codex.** Читает активное поколение (по умолчанию v2, v1 — опционально, только чтение), режет `memory_summary.md` на разделы, читает заголовки `rollout_summaries`, перечисляет ad-hoc-заметки. SQLite Codex открывает только на чтение и только при необходимости (счётчики `usage_count`, `last_usage`).
 
 ## Запись
 
@@ -103,27 +145,28 @@ interface Adapter {
 1. **План.** Адаптер превращает операцию в список файловых изменений. Для Claude: файл факта и строка в `MEMORY.md`. Для Codex: новая или изменённая ad-hoc-заметка.
 2. **Предпросмотр.** Интерфейс показывает unified diff по каждому файлу. Без подтверждения ничего не пишется.
 3. **Проверки перед записью:**
-   - `hash` каждого файла совпадает с тем, что видел пользователь, иначе конфликт и повторный план;
+   - `Hash` каждого файла совпадает с тем, что видел пользователь, иначе конфликт и повторный план;
    - для Codex нет `memories_v2.lock` с живым процессом, иначе ждём или отказываем;
    - путь лежит внутри разрешённых корней (защита от `..` и симлинков).
 4. **Снимок** текущего содержимого в репозиторий бэкапов (`~/.local/share/ai-memory/backups`, отдельный git).
-5. **Атомарная запись:** временный файл рядом и `rename`.
+5. **Атомарная запись:** временный файл в том же каталоге и `os.Rename`.
 6. **Коммит** в репозиторий бэкапов с описанием операции. Откат — обратное применение коммита, тоже через план и diff.
 
 Запрещено всегда: писать в сгенерированные файлы Codex, удалять ad-hoc-заметки, трогать что-либо вне каталогов памяти.
 
 ## Индекс и поиск
 
-- SQLite в `~/.local/share/ai-memory/index.db`, таблица записей и FTS5 по `title`, `description`, `body`.
-- Пересборка с нуля при запуске и инкрементально по событиям наблюдателя файлов (chokidar).
+- SQLite в `~/.local/share/ai-memory/index.db`, таблица записей и FTS5 по заголовку, описанию и телу.
+- Пересборка с нуля при запуске и инкрементально по событиям `fsnotify`. После обновления сервис шлёт событие Wails, и интерфейс перечитывает список.
+- Стандартный токенизатор не знает русских словоформ, поэтому в фазе 1 поиск идёт по префиксам (`ветк*`); стемминг — позже, если понадобится.
 - Поиск дублей ([фаза 3](phases/03-cross-agent.md)): сначала дешёвые кандидаты (FTS и сходство по n-граммам), затем по запросу пользователя — LLM-сравнение.
 
 ## LLM-операции
 
-Только по явному действию пользователя: «найти дубли», «объединить», «переформулировать для другого агента». Вызов через установленные CLI в неинтерактивном режиме (`claude -p`, `codex exec`), без API-ключей. Результат LLM — всегда черновик, который проходит обычный путь записи с diff.
+Только по явному действию пользователя: «найти дубли», «объединить», «переформулировать для другого агента». Вызов через установленные CLI в неинтерактивном режиме (`claude -p`, `codex exec`) через `os/exec`, без API-ключей ([ADR-005](decisions.md#adr-005-llm-операции-через-cli-агентов)). Результат LLM — всегда черновик, который проходит обычный путь записи с diff.
 
-## Безопасность сервера
+## Безопасность
 
-- Слушает только `127.0.0.1`.
-- Проверка `Origin`/`Host` на каждом запросе против DNS rebinding.
-- Случайный токен сессии, который сервер печатает при запуске и передаёт в URL открываемой страницы.
+- В собранном приложении сетевого порта нет: интерфейс вызывает Go напрямую через привязки Wails.
+- В режиме разработки (`wails3 dev`) фронтенд раздаёт dev-сервер Vite на localhost. Нужно убедиться, что привязки недоступны со сторонних страниц, и в режиме разработки по умолчанию работать на фикстурах.
+- Ядро принимает от интерфейса только идентификаторы записей и планов, а не произвольные пути. Каждый путь перед чтением и записью проверяется на принадлежность разрешённым корням.
