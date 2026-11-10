@@ -39,6 +39,9 @@ type Op struct {
 	Params map[string]string `json:"params,omitempty"`
 }
 
+// OpRevert — код операции отката (PlanRevert).
+const OpRevert = "revert"
+
 // Plan — набор изменений, которые применяются вместе.
 type Plan struct {
 	ID      string   `json:"id"`

@@ -59,5 +59,5 @@ func (w *Writer) PlanRevert(ctx context.Context, commit string) (Plan, error) {
 			AfterExists: before.Exists, After: string(before.Content),
 		})
 	}
-	return NewPlan(Op{Code: "revert", Params: map[string]string{"commit": commit, "op": m.Op.Code}}, changes...), nil
+	return NewPlan(Op{Code: OpRevert, Params: map[string]string{"commit": commit, "op": m.Op.Code}}, changes...), nil
 }

@@ -18,7 +18,8 @@ import (
 //     поколения, а из того, что не память, — AGENTS.md, AGENTS.override.md и
 //     пользовательские навыки в skills/ (кроме системных skills/.system);
 //     сгенерированные файлы Codex — никогда;
-//   - файл заметки не удаляется никогда;
+//   - файл заметки не удаляется никогда; файл инструкций или навыка удаляет
+//     только откат операции, которая его создала (ADR-021);
 //   - запись не идёт во время консолидации: на время записи берём тот же
 //     файловый lock, что Codex 0.167 держит при консолидации, и проверяем
 //     строку задачи в базе (0.159 файлового lock не берёт).
@@ -41,8 +42,9 @@ func (g Guard) Acquire(ctx context.Context, p writer.Plan) (func(), error) {
 		}
 		if instructionsOrSkill(home, c.Path) {
 			// Не память: консолидация их не трогает, блокировка не нужна.
-			// Удалять их ai-memory пока не умеет — и не должна случайно.
-			if !c.AfterExists {
+			// Удаляет их только откат: он возвращает состояние из снимка, то
+			// есть убирает файл, который создала сама ai-memory (ADR-021).
+			if !c.AfterExists && p.Op.Code != writer.OpRevert {
 				return nil, writer.Fail("codex.files.delete-forbidden", "path", c.Path)
 			}
 			continue
@@ -98,6 +100,12 @@ func (g Guard) jobRunning(ctx context.Context, dbPath string) bool {
 		now = g.now
 	}
 	return status == "running" && lease.Valid && lease.Int64 > now().Unix()
+}
+
+// IsInstructionsOrSkill — файл инструкций или пользовательского навыка под
+// CODEX_HOME, а не память: его удаление при откате не подменяется заметкой.
+func IsInstructionsOrSkill(home, p string) bool {
+	return instructionsOrSkill(filepath.Clean(home), filepath.Clean(p))
 }
 
 // instructionsOrSkill — файл инструкций в корне CODEX_HOME или файл

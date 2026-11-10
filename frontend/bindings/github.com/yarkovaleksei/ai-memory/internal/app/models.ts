@@ -3,6 +3,9 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as agentfiles$0 from "../adapter/agentfiles/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as claude$0 from "../adapter/claude/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -225,6 +228,40 @@ export interface NoteText {
     "itemId": string;
     "title": string;
     "body": string;
+}
+
+/**
+ * SectionTarget — куда можно вставить раздел.
+ */
+export interface SectionTarget {
+    /**
+     * ID записи или «new:<ID хранилища>»
+     */
+    "key": string;
+    "agent": model$0.Agent;
+    "title": string;
+
+    /**
+     * только для показа
+     */
+    "file": string;
+    "role": string;
+
+    /**
+     * false — файл будет создан
+     */
+    "exists": boolean;
+    "repo": string;
+    "hash": string;
+    "sections": agentfiles$0.Section[] | null;
+}
+
+/**
+ * SectionsDraft — разделы файла инструкций и хэш, при котором они посчитаны.
+ */
+export interface SectionsDraft {
+    "hash": string;
+    "sections": agentfiles$0.Section[] | null;
 }
 
 /**

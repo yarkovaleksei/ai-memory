@@ -31,6 +31,15 @@ export function Apply(planID: string): $CancellablePromise<$models.ApplyResult> 
 }
 
 /**
+ * CopySection строит план: раздел section файла itemID (хэш hash) — в цель
+ * targetKey (хэш targetHash; для нового файла пусто) в конец её раздела after
+ * или в конец файла (after < 0). move — убрать раздел из исходного файла.
+ */
+export function CopySection(itemID: string, hash: string, section: number, targetKey: string, targetHash: string, after: number, move: boolean): $CancellablePromise<writer$0.Plan> {
+    return $Call.ByID(3973506176, itemID, hash, section, targetKey, targetHash, after, move);
+}
+
+/**
  * CreateFact — новый факт Claude в проекте и профиле.
  */
 export function CreateFact(sourceID: string, projectID: string, $in: claude$0.FactInput): $CancellablePromise<writer$0.Plan> {
@@ -82,12 +91,30 @@ export function ForgetNote(title: string, body: string): $CancellablePromise<wri
 }
 
 /**
+ * InstructionSections режет файл инструкций на разделы. Читает диск, а не
+ * индекс: номера разделов должны совпасть с тем, что увидит план.
+ */
+export function InstructionSections(itemID: string): $CancellablePromise<$models.SectionsDraft> {
+    return $Call.ByID(1919290624, itemID);
+}
+
+/**
  * Merge строит план объединения: одна новая запись, факты Claude группы
  * удаляются, для записей Codex пишутся заметки «забыть». Всё одним планом и
  * одним коммитом бэкапа, и откатывается одной операцией (ADR-014).
  */
 export function Merge(req: $models.MergeRequest): $CancellablePromise<writer$0.Plan> {
     return $Call.ByID(736975136, req);
+}
+
+/**
+ * SectionTargets — файлы инструкций того же проекта (или глобальные), в
+ * которые можно вставить раздел, и файлы, которые можно для этого создать:
+ * AGENTS.md, если у проекта нет инструкций Codex, CLAUDE.md — если нет
+ * инструкций Claude. Сначала — файлы другого агента.
+ */
+export function SectionTargets(itemID: string): $CancellablePromise<$models.SectionTarget[] | null> {
+    return $Call.ByID(959824727, itemID);
 }
 
 /**

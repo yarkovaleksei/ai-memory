@@ -480,11 +480,13 @@ func (s *HistoryService) Revert(ctx context.Context, commit, cancelMessage strin
 		return writer.Plan{}, s.e.error(err)
 	}
 	// Откат создания заметки Codex не удаляет файл (ADR-002), а переписывает
-	// заметку на отмену (ADR-014). Удаление любого другого файла Codex
+	// заметку на отмену (ADR-014). Созданный нами файл инструкций или навыка
+	// откат удаляет (ADR-021). Удаление любого другого файла Codex
 	// отклоняется сразу, а не после диалога с diff.
 	if home := filepath.FromSlash(s.e.rt.Config().CodexHome); home != "" {
 		for i, c := range p.Changes {
-			if c.AfterExists || !strings.HasPrefix(c.Path, home+string(filepath.Separator)) {
+			if c.AfterExists || !strings.HasPrefix(c.Path, home+string(filepath.Separator)) ||
+				codex.IsInstructionsOrSkill(home, c.Path) {
 				continue
 			}
 			if !codex.IsNote(home, codex.GenV2, c.Path) && !codex.IsNote(home, codex.GenV1, c.Path) {

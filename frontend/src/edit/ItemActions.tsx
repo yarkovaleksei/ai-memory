@@ -13,6 +13,7 @@ import { FactEditor, type FactTarget } from "./FactEditor";
 import { FileEditor } from "./FileEditor";
 import { MergeDialog } from "./MergeDialog";
 import { NoteEditor, type NoteTarget } from "./NoteEditor";
+import { SectionDialog } from "./SectionDialog";
 import { useWritableAgents } from "./agents";
 import { TransferDialog, transferTargets } from "./TransferDialog";
 import { useEditStatus, useRunPlan } from "./plans";
@@ -52,6 +53,7 @@ export const ItemActions = ({ item }: { item: Item }) => {
   const [note, setNote] = useState<NoteTarget | null>(null);
   const [transfer, setTransfer] = useState(false);
   const [file, setFile] = useState(false);
+  const [section, setSection] = useState(false);
   const agents = useWritableAgents();
 
   const indexIssue = (item.warnings ?? []).some((w) => w.code.startsWith("claude.index."));
@@ -77,6 +79,10 @@ export const ItemActions = ({ item }: { item: Item }) => {
   // Инструкции и навыки правятся исходником целиком (ADR-020).
   if (!isMemory(item) && item.write === "direct") {
     add("editFile", "aim.actions.edit", () => setFile(true));
+  }
+  // Правило переносится разделом в другой файл инструкций (ADR-021).
+  if (item.kind === "instructions") {
+    add("copySection", "aim.actions.copySection", () => setSection(true));
   }
   if (item.agent === "claude" && indexIssue) {
     add("fix", "aim.actions.fixIndex", () => void runPlan(() => PlansService.FixIndex(item.id)));
@@ -104,6 +110,7 @@ export const ItemActions = ({ item }: { item: Item }) => {
       {note && <NoteEditor target={note} onClose={() => setNote(null)} />}
       {transfer && <TransferDialog item={item} onClose={() => setTransfer(false)} />}
       {file && <FileEditor item={item} onClose={() => setFile(false)} />}
+      {section && <SectionDialog item={item} onClose={() => setSection(false)} />}
     </>
   );
 };

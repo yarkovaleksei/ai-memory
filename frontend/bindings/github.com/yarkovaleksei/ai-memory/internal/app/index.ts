@@ -28,6 +28,8 @@ export type {
     ListItem,
     MergeRequest,
     NoteText,
+    SectionTarget,
+    SectionsDraft,
     SettingsView,
     TransferLink
 } from "./models.js";

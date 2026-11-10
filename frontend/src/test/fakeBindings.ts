@@ -285,6 +285,50 @@ export const plansService = {
   ),
   UpdateFact: vi.fn(() => Promise.resolve(plan("claude.fact.update", { name: "prefer-yarn" }))),
   UpdateSource: vi.fn(() => Promise.resolve(plan("codex.note.update", { file: "x.md" }))),
+  // Разделы AGENTS.md проекта demo и куда их можно вставить (ADR-021).
+  InstructionSections: vi.fn(() =>
+    Promise.resolve({
+      hash: "h-agents",
+      sections: [
+        {
+          index: 0,
+          level: 1,
+          heading: "Правила проекта demo",
+          text: "# Правила проекта demo\n\n## Код\n\n- yarn",
+          imports: [] as string[],
+        },
+        { index: 1, level: 2, heading: "Код", text: "## Код\n\n- yarn", imports: [] as string[] },
+      ],
+    }),
+  ),
+  SectionTargets: vi.fn(() =>
+    Promise.resolve([
+      {
+        key: "i-claude-md",
+        agent: "claude",
+        title: "CLAUDE.md",
+        file: "/home/me/projects/demo/CLAUDE.md",
+        role: "main",
+        exists: true,
+        repo: "/home/me/projects/demo",
+        hash: "h-claude",
+        sections: [
+          { index: 0, level: 1, heading: "Проект demo", text: "", imports: ["AGENTS.md"] },
+          { index: 1, level: 2, heading: "Только для Claude Code", text: "", imports: [] as string[] },
+        ],
+      },
+    ]),
+  ),
+  CopySection: vi.fn(() =>
+    Promise.resolve(
+      plan("instructions.section-copy", {
+        heading: "Код",
+        from: "AGENTS.md",
+        to: "CLAUDE.md",
+        agent: "claude",
+      }),
+    ),
+  ),
   CreateFact: vi.fn(() => Promise.resolve(plan("claude.fact.create", { name: "x" }))),
   DeleteFacts: vi.fn((ids: string[]) =>
     Promise.resolve(plan("claude.fact.delete", { count: String(ids.length) })),

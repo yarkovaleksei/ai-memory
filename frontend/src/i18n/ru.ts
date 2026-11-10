@@ -249,6 +249,13 @@ const ru: TranslationMessages = {
         "too-few": "Для объединения выберите хотя бы две записи",
         "target-invalid": "Неизвестно, куда записать итог объединения",
       },
+      section: {
+        "not-instructions":
+          "«%{title}» — не файл инструкций: разделы есть только у CLAUDE.md, AGENTS.md и правил",
+        "not-found": "Раздела больше нет — файл изменился. Откройте диалог заново.",
+        "same-file": "Раздел уже в этом файле — выберите другой",
+        "target-invalid": "Неизвестно, куда вставить раздел — выберите файл из списка",
+      },
       transfer: {
         "same-place": "Факт уже лежит в этом проекте и профиле — выберите другой или скопируйте",
         "same-agent": "Запись Codex переносится только в Claude Code",
@@ -264,7 +271,8 @@ const ru: TranslationMessages = {
           "body-empty": "Текст заметки пуст",
         },
         files: {
-          "delete-forbidden": "%{path} удалить нельзя: ai-memory инструкции и навыки Codex только правит",
+          "delete-forbidden":
+            "%{path} удалить нельзя: ai-memory удаляет файл инструкций или навыка Codex, только откатывая операцию, которая его создала",
         },
       },
     },
@@ -283,6 +291,8 @@ const ru: TranslationMessages = {
       merge: "Объединение записей (%{count}) в «%{title}»",
       "instructions.update": "Изменить инструкции %{file}",
       "skill.update": "Изменить навык «%{name}»",
+      "instructions.section-copy": "Копия правила «%{heading}» из %{from} в %{to}",
+      "instructions.section-move": "Перенос правила «%{heading}» из %{from} в %{to}",
       revert: "Откат: %{op}",
     },
     opKinds: {
@@ -300,6 +310,8 @@ const ru: TranslationMessages = {
       merge: "объединение",
       "instructions.update": "правка инструкций",
       "skill.update": "правка навыка",
+      "instructions.section-copy": "копия правила",
+      "instructions.section-move": "перенос правила",
       revert: "откат",
     },
     planWarnings: {
@@ -308,7 +320,39 @@ const ru: TranslationMessages = {
           "Файл лежит в git-репозитории %{repo}: правка появится в его git status. Коммитить её — ваше решение, ai-memory в чужие репозитории не коммитит.",
         "shared-skill":
           "Каталог навыка %{dir} подключён в нескольких местах: правка изменит навык у всех агентов и профилей, которые на него ссылаются.",
+        "section-imports":
+          "В разделе импорты Claude: %{imports}. Codex их не понимает и прочтёт как обычный текст — перенесите нужное содержимое сами.",
+        "section-imported":
+          "%{file} уже импортирует исходный файл (%{import}): Claude Code увидит правило дважды.",
+        "section-exists": "В целевом файле уже есть раздел «%{heading}» — проверьте, не дубль ли это.",
+        "target-shadowed":
+          "Codex не читает %{file}: рядом лежит %{override}, и Codex берёт его вместо AGENTS.md.",
+        "target-conditional":
+          "%{file} — правило с paths: Claude Code загрузит его, только когда открыты подходящие файлы.",
+        "codex-size":
+          "Файл станет %{size} байт, а Codex читает инструкции проекта только до %{limit} байт: конец обрежется.",
+        "claude-imports-agents":
+          "Новый %{file} начинается с @AGENTS.md: пока CLAUDE.md нет, Claude Code читает AGENTS.md сам, а с CLAUDE.md перестанет — импорт сохраняет эти правила.",
       },
+    },
+    section: {
+      title: "Перенести правило из %{title}",
+      section: "Раздел",
+      preamble: "Текст до первого заголовка",
+      text: "Текст раздела",
+      target: "Куда",
+      targetLabel: "%{agent} · %{title}",
+      targetNew: "%{agent} · %{title} — будет создан",
+      position: "Место",
+      end: "В конец файла",
+      after: "В конец раздела «%{heading}»",
+      move: "Убрать из исходного файла",
+      copyHelp: "Раздел скопируется, %{title} не изменится.",
+      moveHelp: "Раздел уберётся из %{title} той же операцией. Откат вернёт оба файла.",
+      imports: "В разделе импорты %{imports}: Codex их не понимает и прочтёт как текст.",
+      noSections: "В файле нет текста — переносить нечего.",
+      noTargets:
+        "Вставить некуда: других файлов инструкций у проекта нет, и создать новый нельзя — каталог проекта неизвестен.",
     },
     file: {
       titles: {
@@ -330,6 +374,7 @@ const ru: TranslationMessages = {
     },
     actions: {
       edit: "Изменить",
+      copySection: "Перенести правило",
       delete: "Удалить",
       fixIndex: "Исправить индекс",
       editNote: "Изменить заметку",

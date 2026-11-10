@@ -135,3 +135,92 @@ describe("правка инструкций и навыков", () => {
     expect(apply).toBeEnabled();
   });
 });
+
+describe("перенос правила между инструкциями", () => {
+  it("раздел AGENTS.md вставляется в CLAUDE.md через план с diff", async () => {
+    plansService.CopySection.mockImplementationOnce(() =>
+      Promise.resolve({
+        ...plan("instructions.section-move", {
+          heading: "Код",
+          from: "AGENTS.md",
+          to: "CLAUDE.md",
+          agent: "claude",
+        }),
+        warnings: [{ code: "plan.section-imported", params: { file: "CLAUDE.md", import: "AGENTS.md" } }],
+      }),
+    );
+    render(<App />);
+    const pane = await openPreview("AGENTS.md");
+    fireEvent.click(pane.getByRole("button", { name: "Перенести правило" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Перенести правило из AGENTS.md" }));
+    // По умолчанию — первый подраздел: верхний заголовок накрывает весь файл.
+    expect(await dialog.findByRole("combobox", { name: "Раздел" })).toHaveTextContent("Код");
+    expect(dialog.getByLabelText("Текст раздела")).toHaveTextContent("- yarn");
+    expect(dialog.getByRole("combobox", { name: "Куда" })).toHaveTextContent("Claude Code · CLAUDE.md");
+
+    fireEvent.mouseDown(dialog.getByRole("combobox", { name: "Место" }));
+    fireEvent.click(
+      await screen.findByRole("option", { name: /В конец раздела «.*Только для Claude Code»/ }),
+    );
+    fireEvent.click(dialog.getByLabelText("Убрать из исходного файла"));
+    fireEvent.click(dialog.getByRole("button", { name: "Показать изменения" }));
+
+    const planDialog = within(
+      await screen.findByRole("dialog", { name: "Перенос правила «Код» из AGENTS.md в CLAUDE.md" }),
+    );
+    expect(plansService.CopySection).toHaveBeenLastCalledWith(
+      "i-agents",
+      "h-agents",
+      1,
+      "i-claude-md",
+      "h-claude",
+      1,
+      true,
+    );
+    expect(planDialog.getByText(/Claude Code увидит правило дважды/)).toBeInTheDocument();
+    fireEvent.click(planDialog.getByRole("button", { name: "Записать" }));
+    await waitFor(() => expect(plansService.Apply).toHaveBeenCalled());
+  });
+
+  it("импорты @ в Codex предупреждают, отсутствующий AGENTS.md будет создан", async () => {
+    plansService.InstructionSections.mockImplementationOnce(() =>
+      Promise.resolve({
+        hash: "h",
+        sections: [
+          {
+            index: 0,
+            level: 2,
+            heading: "Общее",
+            text: "## Общее\n\n@docs/style.md",
+            imports: ["docs/style.md"],
+          },
+        ],
+      }),
+    );
+    plansService.SectionTargets.mockImplementationOnce(() =>
+      Promise.resolve([
+        {
+          key: "new:codex-projects",
+          agent: "codex",
+          title: "AGENTS.md",
+          file: "/home/me/projects/demo/AGENTS.md",
+          role: "main",
+          exists: false,
+          repo: "",
+          hash: "",
+          sections: [],
+        },
+      ]),
+    );
+    render(<App />);
+    const pane = await openPreview("AGENTS.md");
+    fireEvent.click(pane.getByRole("button", { name: "Перенести правило" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Перенести правило из AGENTS.md" }));
+    expect(await dialog.findByRole("combobox", { name: "Куда" })).toHaveTextContent(
+      "Codex · AGENTS.md — будет создан",
+    );
+    expect(dialog.getByText(/импорты docs\/style\.md: Codex их не понимает/)).toBeInTheDocument();
+    // В новый файл вставлять можно только в конец.
+    expect(dialog.getByRole("combobox", { name: "Место" })).toHaveAttribute("aria-disabled", "true");
+  });
+});

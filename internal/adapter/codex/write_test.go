@@ -364,3 +364,29 @@ func TestGuardAllowsInstructionsAndSkills(t *testing.T) {
 		}
 	}
 }
+
+// Файл инструкций в CODEX_HOME удаляет только откат его создания (ADR-021).
+func TestGuardRevertRemovesCreatedInstructions(t *testing.T) {
+	ctx := context.Background()
+	home := copyHome(t)
+	path := filepath.Join(home, "AGENTS.md")
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	w := newWriter(t, home, GenV2)
+	res, err := w.Apply(ctx, writer.NewPlan(writer.Op{Code: "instructions.section-copy"},
+		writer.Change{Path: path, AfterExists: true, After: "## Правило\n"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rev, err := w.PlanRevert(ctx, res.Commit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Apply(ctx, rev); err != nil {
+		t.Fatalf("откат создания AGENTS.md: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("AGENTS.md остался после отката: %v", err)
+	}
+}

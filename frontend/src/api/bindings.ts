@@ -20,6 +20,8 @@ export type {
   ListItem,
   MergeRequest,
   NoteText,
+  SectionTarget,
+  SectionsDraft,
   SettingsView,
   TransferLink,
 } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/app";
@@ -38,6 +40,7 @@ export type {
   Plan,
 } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/writer";
 export type { FactInput } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/adapter/claude";
+export type { Section } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/adapter/agentfiles";
 export type { Consolidation } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/adapter/codex";
 export type { MergeDraft } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/llm";
 export type { Settings } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/config";

@@ -90,6 +90,11 @@ func (a Adapter) Discover(ctx context.Context) ([]model.Source, error) {
 	return out, ctx.Err()
 }
 
+// ClaudeFilesID и CodexFilesID — ID хранилищ глобальных инструкций профиля
+// Claude и CODEX_HOME с корнем root.
+func ClaudeFilesID(root string) string { return prefixClaude + root }
+func CodexFilesID(root string) string  { return prefixCodex + root }
+
 func files(id string, agent model.Agent, label, root string) model.Source {
 	return model.Source{ID: id, Agent: agent, Label: label, Root: root, Files: true}
 }
