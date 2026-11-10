@@ -230,21 +230,30 @@ func TestNotFound(t *testing.T) {
 }
 
 func TestContradictions(t *testing.T) {
-	recs := append(items(), model.Item{ID: "d", Agent: model.AgentClaude, Title: "Ветка", Body: "Базовая ветка — develop."})
+	recs := append(items(),
+		model.Item{ID: "d", Agent: model.AgentClaude, Title: "Ветка", Body: "Базовая ветка — develop."},
+		model.Item{ID: "e", Agent: model.AgentCodex, Kind: model.KindInstructions, Title: "AGENTS.md", Body: "- Только yarn."})
 	c, calls := client(t, func(Cmd) (string, error) {
-		// Повтор пары в обратном порядке и номер вне списка отбрасываются.
-		return claudeResult(`{"contradictions":[{"a":3,"b":4,"summary":"main или develop"},` +
-			`{"a":4,"b":3,"summary":"повтор"},{"a":1,"b":7,"summary":"нет такой"}]}`), nil
+		// Повтор пары в обратном порядке и номер вне списка отбрасываются;
+		// неизвестный вид — противоречие.
+		return claudeResult(`{"contradictions":[{"a":3,"b":4,"kind":"what","summary":"main или develop"},` +
+			`{"a":4,"b":3,"kind":"contradiction","summary":"повтор"},{"a":1,"b":7,"kind":"contradiction","summary":"нет такой"},` +
+			`{"a":5,"b":1,"kind":"duplicate","summary":"yarn и в AGENTS.md"}]}`), nil
 	})
 	got, err := c.Contradictions(context.Background(), model.AgentClaude, recs)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(*calls) != 1 || strings.Count((*calls)[0].cmd.Stdin, "<record ") != 4 {
+	if len(*calls) != 1 || strings.Count((*calls)[0].cmd.Stdin, "<record ") != 5 {
 		t.Fatalf("вызовов %d", len(*calls))
 	}
-	if len(got) != 1 || !slices.Equal(got[0].ItemIDs, []string{"c", "d"}) || got[0].Summary != "main или develop" {
-		t.Errorf("противоречия %+v", got)
+	// Инструкции помечены в промпте: по этому модель находит дубли.
+	if !strings.Contains((*calls)[0].cmd.Stdin, `kind="instructions" file="AGENTS.md"`) {
+		t.Error("инструкции не помечены в промпте")
+	}
+	if len(got) != 2 || !slices.Equal(got[0].ItemIDs, []string{"c", "d"}) || got[0].Summary != "main или develop" ||
+		got[0].Kind != KindContradiction || got[1].Kind != KindDuplicate || !slices.Equal(got[1].ItemIDs, []string{"e", items()[0].ID}) {
+		t.Errorf("находки %+v", got)
 	}
 
 	// Не помещается — без вызова, с размером в ошибке.

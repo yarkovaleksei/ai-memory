@@ -51,6 +51,13 @@ func (s *LLMService) MergeDraft(ctx context.Context, itemIDs []string, agent mod
 	if err != nil {
 		return llm.MergeDraft{}, err
 	}
+	// Инструкции отмечаются только для проверки противоречий (ADR-024):
+	// объединение их не уберёт.
+	for _, it := range items {
+		if !it.Kind.Memory() {
+			return llm.MergeDraft{}, fail("plan.not-memory", "title", it.Title)
+		}
+	}
 	d, err := s.client().Merge(ctx, agent, items)
 	if err != nil {
 		return llm.MergeDraft{}, s.error(err)
@@ -62,6 +69,7 @@ func (s *LLMService) MergeDraft(ctx context.Context, itemIDs []string, agent mod
 // рядом без дополнительных запросов.
 type Contradiction struct {
 	Summary string       `json:"summary"`
+	Kind    string       `json:"kind"` // contradiction | duplicate
 	Items   []model.Item `json:"items"`
 }
 
@@ -81,7 +89,7 @@ func (s *LLMService) Contradictions(ctx context.Context, itemIDs []string, agent
 	}
 	out := make([]Contradiction, 0, len(found))
 	for _, c := range found {
-		v := Contradiction{Summary: c.Summary}
+		v := Contradiction{Summary: c.Summary, Kind: c.Kind}
 		for _, id := range c.ItemIDs {
 			v.Items = append(v.Items, byID[id])
 		}

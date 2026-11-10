@@ -474,6 +474,7 @@ export const llmService = {
     Promise.resolve([
       {
         summary: "Разные базовые ветки релиза",
+        kind: "contradiction",
         items: items.filter((it) => ids.includes(it.id)).slice(0, 2),
       },
     ]),

@@ -197,13 +197,15 @@ export const BulkActions = () => {
   const ready = items.length === ids.length && ids.length > 0;
   const [dialog, setDialog] = useState<"merge" | "contradictions" | null>(null);
   const onlyFacts = ready && items.every(isFact);
+  // Инструкции отмечаются только для проверки противоречий (ADR-024).
+  const onlyMemory = ready && items.every(isMemory);
   return (
     <Stack direction="row" spacing={1}>
-      <Gate reason={reason}>
+      <Gate reason={reason || (ready && !onlyMemory ? translate("aim.actions.mergeOnlyMemory") : "")}>
         <Button
           variant="outlined"
           startIcon={<MergeIcon />}
-          disabled={disabled || !ready || ids.length < 2 || (!agents.claude && !agents.codex)}
+          disabled={disabled || !onlyMemory || ids.length < 2 || (!agents.claude && !agents.codex)}
           onClick={() => setDialog("merge")}
         >
           {translate("aim.actions.merge")}
@@ -242,6 +244,7 @@ export const BulkActions = () => {
 
 // Отмечать можно то, что объединение умеет убрать: факт Claude удаляется,
 // для записи Codex пишется заметка «Забыть». Сводки и сгенерированные файлы
-// Codex только читаются.
+// Codex только читаются. Ещё — файлы инструкций, но только для проверки
+// противоречий и дублей с памятью (ADR-024): объединять их нельзя.
 export const isSelectable = (it: Pick<Item, "agent" | "kind" | "write">) =>
-  isFact(it) || (it.agent === "codex" && it.write !== "none" && isMemory(it));
+  isFact(it) || (it.agent === "codex" && it.write !== "none" && isMemory(it)) || it.kind === "instructions";

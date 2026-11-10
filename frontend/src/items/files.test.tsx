@@ -42,8 +42,8 @@ describe("инструкции и навыки", () => {
     const row = (await screen.findByText("AGENTS.md")).closest("tr") as HTMLElement;
     expect(within(row).getByText("Инструкции")).toBeInTheDocument();
     expect(screen.getByText("Пакеты только через yarn")).toBeInTheDocument();
-    // Инструкции не отмечаются: объединять и удалять их как память нельзя.
-    expect(within(row).queryByRole("checkbox")).not.toBeInTheDocument();
+    // Инструкции отмечаются — для проверки противоречий и дублей с памятью.
+    expect(within(row).getByRole("checkbox")).toBeInTheDocument();
 
     fireEvent.mouseDown(screen.getByRole("combobox", { name: "Раздел" }));
     fireEvent.click(await screen.findByRole("option", { name: "Навыки" }));

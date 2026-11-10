@@ -55,6 +55,11 @@ export interface CodexStatus {
  */
 export interface Contradiction {
     "summary": string;
+
+    /**
+     * contradiction | duplicate
+     */
+    "kind": string;
     "items": model$0.Item[] | null;
 }
 

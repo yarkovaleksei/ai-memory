@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import {
   historyService,
+  items,
   listSources,
   llmService,
   plansService,
@@ -166,6 +167,31 @@ describe("массовые действия", () => {
     expect(await dialog.findByText("Разные базовые ветки релиза")).toBeInTheDocument();
     expect(llmService.Contradictions).toHaveBeenCalledWith(["i-yarn", "i-note"], "codex");
     expect(dialog.getByRole("button", { name: "Объединить" })).toBeInTheDocument();
+  });
+
+  it("инструкции отмечаются для проверки дублей, но не для объединения", async () => {
+    llmService.Contradictions.mockImplementationOnce((ids: string[]) =>
+      Promise.resolve([
+        {
+          summary: "Правило про yarn уже есть в AGENTS.md",
+          kind: "duplicate",
+          items: items.filter((it) => ids.includes(it.id)),
+        },
+      ]),
+    );
+    render(<App />);
+    await selectRows("Пакеты только через yarn", "AGENTS.md");
+    const check = screen.getByRole("button", { name: "Найти противоречия" });
+    await waitFor(() => expect(check).toBeEnabled());
+    expect(screen.getByRole("button", { name: "Объединить" })).toBeDisabled();
+    fireEvent.click(check);
+    const dialog = within(await screen.findByRole("dialog", { name: "Противоречия среди 2 записей" }));
+    fireEvent.click(await dialog.findByRole("button", { name: "Проверить через Codex" }));
+    expect(await dialog.findByText("Дубль")).toBeInTheDocument();
+    expect(llmService.Contradictions).toHaveBeenLastCalledWith(["i-yarn", "i-agents"], "codex");
+    expect(dialog.getByRole("button", { name: "Объединить" })).toBeDisabled();
+    fireEvent.click(dialog.getByRole("button", { name: "Удалить факт «Пакеты только через yarn»" }));
+    await waitFor(() => expect(plansService.DeleteFacts).toHaveBeenLastCalledWith(["i-yarn"]));
   });
 
   it("без CLI агентов кнопок модели нет", async () => {

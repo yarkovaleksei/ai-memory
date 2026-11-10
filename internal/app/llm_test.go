@@ -126,3 +126,36 @@ func code(err error) string {
 	}
 	return ""
 }
+
+// Инструкции отмечаются для проверки противоречий и дублей с памятью, но не
+// для объединения: оно не умеет их убрать (ADR-024).
+func TestLLMInstructionsOnlyForContradictions(t *testing.T) {
+	ctx := context.Background()
+	s, calls := llmFixture(t, `{"is_error":false,"structured_output":{"contradictions":[`+
+		`{"a":1,"b":2,"kind":"duplicate","summary":"правило уже в CLAUDE.md"}]}}`, nil)
+	all, err := s.lib.All(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var instr model.Item
+	for _, it := range all {
+		if it.Kind == model.KindInstructions {
+			instr = it
+			break
+		}
+	}
+	if instr.ID == "" {
+		t.Fatal("в фикстурах нет инструкций")
+	}
+	fact := fixtureItems(t, s)[0]
+	got, err := s.Contradictions(ctx, []string{instr.ID, fact.ID}, model.AgentClaude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Kind != llm.KindDuplicate || got[0].Items[0].ID != instr.ID {
+		t.Errorf("находки %+v", got)
+	}
+	if _, err := s.MergeDraft(ctx, []string{instr.ID, fact.ID}, model.AgentClaude); code(err) != "plan.not-memory" || len(*calls) != 1 {
+		t.Errorf("объединение с инструкциями: %v, вызовов %d", err, len(*calls))
+	}
+}
