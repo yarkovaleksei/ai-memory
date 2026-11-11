@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/yarkovaleksei/ai-memory/internal/adapter"
@@ -127,6 +128,19 @@ func (s scanner) skills() []model.Item {
 	return out
 }
 
+// anchorSet делает якоря разделов одного файла уникальными: консолидация
+// Codex бывает пишет два раздела с одним заголовком, а ID записи строится из
+// якоря. Повтор получает номер: «Заголовок #2».
+type anchorSet map[string]int
+
+func (a anchorSet) unique(anchor string) string {
+	a[anchor]++
+	if n := a[anchor]; n > 1 {
+		return anchor + " #" + strconv.Itoa(n)
+	}
+	return anchor
+}
+
 type scanner struct {
 	src model.Source
 }
@@ -166,12 +180,13 @@ func (s scanner) summary(rollouts map[string]*model.Item) []model.Item {
 		return nil
 	}
 	var out []model.Item
+	anchors := anchorSet{}
 	for _, sec := range markdown.Sections(content, 2) {
 		if sec.Heading == "" {
 			continue // строка версии «v1» до первого раздела
 		}
 		if sec.Heading != whatsInMem {
-			it := s.base(path, sec.Heading, model.KindCodexSection, content, fi)
+			it := s.base(path, anchors.unique(sec.Heading), model.KindCodexSection, content, fi)
 			it.Title, it.Body = sec.Heading, sec.Body
 			it.Description = markdown.FirstParagraph(sec.Body, 200)
 			it.Write = s.write(model.WriteViaNote)
@@ -183,7 +198,7 @@ func (s scanner) summary(rollouts map[string]*model.Item) []model.Item {
 			if group.Heading == "" {
 				continue
 			}
-			anchor := whatsInMem + "/" + group.Heading
+			anchor := anchors.unique(whatsInMem + "/" + group.Heading)
 			it := s.base(path, anchor, model.KindCodexSection, content, fi)
 			it.Title, it.Body = group.Heading, group.Body
 			it.Description = firstListItem(group.Body)
@@ -204,11 +219,12 @@ func (s scanner) memoryV1(rollouts map[string]*model.Item) []model.Item {
 		return nil
 	}
 	var out []model.Item
+	anchors := anchorSet{}
 	for _, sec := range markdown.Sections(content, 1) {
 		if sec.Heading == "" {
 			continue
 		}
-		it := s.base(path, sec.Heading, model.KindCodexSection, content, fi)
+		it := s.base(path, anchors.unique(sec.Heading), model.KindCodexSection, content, fi)
 		it.Title = strings.TrimPrefix(sec.Heading, "Task Group: ")
 		it.Body = sec.Body
 		it.Description = markdown.FirstParagraph(sec.Body, 200)

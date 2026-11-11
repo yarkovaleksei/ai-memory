@@ -2,6 +2,7 @@ package codex
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -127,4 +128,42 @@ func keys(m map[string][]model.Item) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// Консолидация бывает пишет два раздела с одним заголовком: у записей всё
+// равно разные ID, иначе индекс не соберётся.
+func TestSummaryDuplicateHeadings(t *testing.T) {
+	home := copyHome(t)
+	gen := filepath.Join(home, dirV2)
+	summary := "v1\n\n## User preferences\n\n- a\n\n## User preferences\n\n- b\n\n## What's in Memory\n\n### demo\n\n- x\n\n### demo\n\n- y\n"
+	if err := os.WriteFile(filepath.Join(gen, summaryFile), []byte(summary), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a := Adapter{Home: home, Generation: GenV2}
+	srcs, err := a.Discover(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]string{}
+	for _, src := range srcs {
+		items, err := a.Scan(context.Background(), src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, it := range items {
+			if prev, ok := ids[it.ID]; ok {
+				t.Errorf("одинаковый ID у %q и %q", prev, it.Anchor)
+			}
+			ids[it.ID] = it.Anchor
+		}
+	}
+	for _, want := range []string{"User preferences", "User preferences #2", "What's in Memory/demo", "What's in Memory/demo #2"} {
+		found := false
+		for _, a := range ids {
+			found = found || a == want
+		}
+		if !found {
+			t.Errorf("нет якоря %q среди %v", want, ids)
+		}
+	}
 }

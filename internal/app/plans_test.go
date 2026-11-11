@@ -159,6 +159,10 @@ func (e editEnv) apply(t *testing.T) func(writer.Plan, error) ApplyResult {
 		}
 		res, err := e.plans.Apply(context.Background(), p.ID)
 		if err != nil {
+			var ae *Error
+			if errors.As(err, &ae) {
+				t.Fatal(ae.Code, ae.Params)
+			}
 			t.Fatal(err)
 		}
 		return res

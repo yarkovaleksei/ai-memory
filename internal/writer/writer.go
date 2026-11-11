@@ -284,7 +284,9 @@ func (w *Writer) validatePaths(p Plan) error {
 			if c.BeforeLink == "" {
 				return Fail("write.symlink", "path", c.Path)
 			}
-		} else if err == nil && !fi.Mode().IsRegular() {
+		} else if err == nil && !fi.Mode().IsRegular() && !(c.Link != "" && c.BeforeLink == "" && emptyDir(c.Path)) {
+			// Симлинк может встать только на место пустого каталога: его
+			// оставляет откат копии навыка, который удаляет файлы, но не каталоги.
 			return Fail("write.not-regular", "path", c.Path)
 		}
 		// Место симлинка проверяется по его каталогу: сам симлинк ведёт за корни.
@@ -341,12 +343,52 @@ func pathKey(p string) string {
 	return p
 }
 
+// emptyDir: каталог, в котором нет ничего, кроме пустых каталогов (так его
+// оставляет откат копии навыка со вложенными каталогами). Симлинк на каталог
+// — не каталог.
+func emptyDir(p string) bool {
+	fi, err := os.Lstat(p)
+	if err != nil || !fi.IsDir() {
+		return false
+	}
+	empty := true
+	err = filepath.WalkDir(p, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() {
+			empty = false
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return err == nil && empty
+}
+
+// removeEmptyDirs удаляет дерево пустых каталогов снизу вверх. os.Remove не
+// удалит каталог, в котором что-то появилось после проверки.
+func removeEmptyDirs(p string) error {
+	var dirs []string
+	if err := filepath.WalkDir(p, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		dirs = append(dirs, path)
+		return nil
+	}); err != nil {
+		return err
+	}
+	for i := len(dirs) - 1; i >= 0; i-- {
+		if err := os.Remove(dirs[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // checkState сверяет диск с тем, что видел пользователь, и возвращает права файла.
 func checkState(c Change) (fs.FileMode, error) {
 	if c.isLink() {
 		fi, err := os.Lstat(c.Path)
 		switch {
-		case c.BeforeLink == "" && err == nil:
+		case c.BeforeLink == "" && err == nil && !(fi.IsDir() && emptyDir(c.Path)):
 			return 0, Fail("write.conflict", "path", c.Path, "reason", "created")
 		case c.BeforeLink == "":
 			return 0, nil

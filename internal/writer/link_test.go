@@ -115,3 +115,47 @@ func TestLinkRefuses(t *testing.T) {
 		t.Errorf("симлинк не удалён: %v", err)
 	}
 }
+
+// Пустые каталоги, оставшиеся от отката копии навыка, заменяются
+// симлинком; каталог с файлом — нет.
+func TestLinkReplacesEmptyDir(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv(t)
+	target := t.TempDir()
+	empty := filepath.Join(e.root, "skills", "empty")
+	if err := os.MkdirAll(filepath.Join(empty, "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Каталог с файлом — не место для симлинка.
+	file := filepath.Join(empty, "scripts", "run.sh")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.w.Apply(ctx, NewPlan(Op{Code: "t"}, Change{Path: empty, AfterExists: true, Link: target})); code(err) != "write.not-regular" {
+		t.Fatalf("каталог с файлом: %v", err)
+	}
+	// Дерево пустых каталогов, как после отката копии, заменяется.
+	if err := os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+	res, err := e.w.Apply(ctx, NewPlan(Op{Code: "t"}, Change{Path: empty, AfterExists: true, Link: target}))
+	if err != nil {
+		if os.IsPermission(err) {
+			t.Skipf("симлинки недоступны: %v", err)
+		}
+		t.Fatal(err)
+	}
+	if got, err := os.Readlink(empty); err != nil || got != target {
+		t.Fatalf("симлинк: %q %v", got, err)
+	}
+	rev, err := e.w.PlanRevert(ctx, res.Commit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.w.Apply(ctx, rev); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(empty); !os.IsNotExist(err) {
+		t.Errorf("после отката на месте симлинка что-то осталось: %v", err)
+	}
+}

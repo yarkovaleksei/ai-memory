@@ -125,10 +125,11 @@ func (l *Library) Rebuild(ctx context.Context) (Stats, error) {
 		}
 		items = append(items, got...)
 	}
-	// Проектные инструкции и навыки ищутся по путям проектов из памяти: других
-	// источников путей у ai-memory нет.
+	// Проектные инструкции и навыки ищутся по путям проектов из памяти и из
+	// каталогов проектов Claude без памяти (ADR-025): других источников путей
+	// у ai-memory нет.
 	files := l.files
-	files.Projects = projectPaths(items)
+	files.Projects = append(projectPaths(items), claude.SessionProjects(ctx, l.files.ClaudeProfiles)...)
 	got, err := scan(files)
 	if err != nil {
 		return Stats{}, err

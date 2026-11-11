@@ -273,3 +273,25 @@ func TestDiscoverSameDirTwice(t *testing.T) {
 		})
 	}
 }
+
+// Пути проектов для инструкций берутся и из каталогов без памяти;
+// нераспознанные пропускаются (ADR-025).
+func TestSessionProjects(t *testing.T) {
+	home := fixtureHome(t)
+	got := SessionProjects(context.Background(), []string{filepath.Join(home, ".claude"), filepath.Join(home, ".claude-work")})
+	want := map[string]bool{
+		filepath.FromSlash("/home/me/projects/demo"):  true,
+		filepath.FromSlash("/home/me/projects/empty"): true, // без каталога memory/
+		filepath.FromSlash("/tmp/scratch-42"):         true,
+	}
+	seen := map[string]bool{}
+	for _, p := range got {
+		if !want[p] {
+			t.Errorf("лишний путь %s", p)
+		}
+		seen[p] = true
+	}
+	if len(seen) != len(want) {
+		t.Errorf("пути %v, want %v", got, want)
+	}
+}

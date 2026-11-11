@@ -108,12 +108,26 @@ func (r *Repo) Record(ctx context.Context, files []File, subject string, meta an
 		rel := MapPath(f.Path)
 		dst := filepath.Join(r.dir, filepath.FromSlash(rel))
 		if f.Exists {
+			// Путь в зеркале — либо файл, либо каталог: симлинк навыка хранится
+			// файлом на месте прежнего каталога копии, и наоборот (ADR-023).
+			// На диске агента так быть не может, значит, остатки устарели.
+			if fi, err := os.Lstat(dst); err == nil && fi.IsDir() {
+				if err := os.RemoveAll(dst); err != nil {
+					return "", fmt.Errorf("backup: каталог на месте копии %s: %w", f.Path, err)
+				}
+			}
+			if err := clearFileParents(r.dir, filepath.Dir(dst)); err != nil {
+				return "", fmt.Errorf("backup: каталог копии: %w", err)
+			}
 			if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
 				return "", fmt.Errorf("backup: каталог копии: %w", err)
 			}
 			if err := os.WriteFile(dst, f.Content, 0o600); err != nil {
 				return "", fmt.Errorf("backup: копия %s: %w", f.Path, err)
 			}
+		} else if fi, err := os.Lstat(dst); err == nil && fi.IsDir() {
+			// Каталог в зеркале — не копия файла: файла по этому пути нет и так.
+			continue
 		} else if err := os.Remove(dst); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return "", fmt.Errorf("backup: удаление копии %s: %w", f.Path, err)
 		}
@@ -147,6 +161,19 @@ func (r *Repo) Record(ctx context.Context, files []File, subject string, meta an
 		return "", err
 	}
 	return r.head(ctx)
+}
+
+// clearFileParents убирает файлы зеркала, которые стоят на месте нужных
+// каталогов (между root и dir).
+func clearFileParents(root, dir string) error {
+	for d := dir; len(d) > len(root); d = filepath.Dir(d) {
+		if fi, err := os.Lstat(d); err == nil && !fi.IsDir() {
+			if err := os.Remove(d); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // Log возвращает коммиты операций, новые первыми.

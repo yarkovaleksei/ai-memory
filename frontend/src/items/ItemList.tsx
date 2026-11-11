@@ -94,20 +94,22 @@ const ItemListView = () => {
         <ProjectTree />
       </Paper>
       <Paper variant="outlined" sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <Stack direction="row" sx={{ alignItems: "flex-start", px: 1 }}>
+        {/* В узкой колонке (окно минимальной ширины) кнопки переносятся на
+            строку ниже фильтров, а не наезжают на поле поиска. */}
+        <Stack direction="row" sx={{ alignItems: "flex-start", flexWrap: "wrap", columnGap: 1, px: 1 }}>
           {/* Поля фильтров — одной ширины; высоту и вид задаёт тема. */}
           <Box
             sx={{
-              flex: 1,
+              flex: "1 1 220px",
               minWidth: 0,
               "& .RaFilterForm-filterFormInput": { mr: 1 },
-              "& .RaFilterForm-filterFormInput .MuiInputBase-root": { width: 200 },
+              "& .RaFilterForm-filterFormInput .MuiInputBase-root": { width: 200, maxWidth: "100%" },
             }}
           >
             <FilterForm filters={itemFilters} />
           </Box>
           {/* Отступ сверху — как у полей фильтров (margin dense): кнопки на одной линии с ними. */}
-          <Stack direction="row" spacing={1} sx={{ mt: 1, flexShrink: 0 }}>
+          <Stack direction="row" spacing={1} sx={{ mt: 1, mb: 1, flexShrink: 0, ml: "auto" }}>
             <CreateMenu />
             <RebuildButton />
           </Stack>

@@ -15,6 +15,12 @@ func apply(c Change, mode fs.FileMode) error {
 		if err := os.MkdirAll(filepath.Dir(c.Path), 0o755); err != nil {
 			return Fail("write.failed", "path", c.Path, "error", err.Error())
 		}
+		// Пустые каталоги на месте симлинка (остаток отката копии) убираются.
+		if c.BeforeLink == "" && emptyDir(c.Path) {
+			if err := removeEmptyDirs(c.Path); err != nil {
+				return Fail("write.failed", "path", c.Path, "error", err.Error())
+			}
+		}
 		if c.BeforeLink != "" {
 			if err := os.Remove(c.Path); err != nil {
 				return Fail("write.failed", "path", c.Path, "error", err.Error())

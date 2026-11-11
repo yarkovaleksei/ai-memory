@@ -99,14 +99,23 @@ func files(id string, agent model.Agent, label, root string) model.Source {
 	return model.Source{ID: id, Agent: agent, Label: label, Root: root, Files: true}
 }
 
-// projects — существующие каталоги проектов без повторов.
+// projects — существующие каталоги проектов без повторов. Каталоги внутри
+// профилей Claude, CODEX_HOME и ~/.agents проектами не считаются: агент
+// бывает запущен там (служебные каталоги Claude), но их файлы — это
+// глобальные инструкции и навыки, а не проектные (ADR-025).
 func (a Adapter) projects() []string {
+	var own []string
+	for _, r := range append([]string{a.CodexHome, a.AgentsDir}, a.ClaudeProfiles...) {
+		if r != "" {
+			own = append(own, realKey(filepath.Clean(filepath.FromSlash(r))))
+		}
+	}
 	seen := map[string]bool{}
 	var out []string
 	for _, p := range a.Projects {
 		p = filepath.Clean(filepath.FromSlash(p))
 		k := adapter.PathKey(p)
-		if seen[k] || !adapter.IsDir(p) {
+		if seen[k] || !adapter.IsDir(p) || insideAny(own, realKey(p)) {
 			continue
 		}
 		seen[k] = true
@@ -168,7 +177,22 @@ func (a Adapter) Scan(ctx context.Context, src model.Source) ([]model.Item, erro
 			items = append(items, withRepo(skills(src, filepath.Join(p, ".codex", "skills"), RoleProject, model.WriteDirect, ref), repo)...)
 		}
 	}
-	return items, ctx.Err()
+	return uniqueItems(items), ctx.Err()
+}
+
+// uniqueItems убирает повторы одного файла: вложенные проекты (/x и /x/.claude)
+// читают один и тот же CLAUDE.md, а индекс требует уникальный ID.
+func uniqueItems(items []model.Item) []model.Item {
+	seen := make(map[string]bool, len(items))
+	out := items[:0]
+	for _, it := range items {
+		if seen[it.ID] {
+			continue
+		}
+		seen[it.ID] = true
+		out = append(out, it)
+	}
+	return out
 }
 
 // instructions читает один файл инструкций, если он есть. base — от чего
@@ -293,6 +317,17 @@ func repoRoot(dir string) string {
 		}
 		d = parent
 	}
+}
+
+// insideAny: key совпадает с одним из roots или лежит внутри него.
+func insideAny(roots []string, key string) bool {
+	for _, r := range roots {
+		rel, err := filepath.Rel(r, key)
+		if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 // realKey — путь с раскрытыми симлинками для сравнения.

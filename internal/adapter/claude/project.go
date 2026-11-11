@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -136,4 +137,33 @@ func walkDecode(dir, rest string, depth int) (string, bool) {
 func isDir(p string) bool {
 	fi, err := os.Stat(p)
 	return err == nil && fi.IsDir()
+}
+
+// SessionProjects — пути проектов из каталогов проектов профилей, в том числе
+// тех, где у Claude нет ни одного факта памяти: по ним ищутся инструкции и
+// навыки проекта (ADR-025). Из файлов сессий читается только поле cwd, как и
+// для памяти. Временные проекты не отбрасываются, как и в памяти: каталоги,
+// которых уже нет, отсеет адаптер инструкций.
+func SessionProjects(ctx context.Context, profiles []string) []string {
+	var out []string
+	for _, profile := range profiles {
+		projects := filepath.Join(filepath.FromSlash(profile), "projects")
+		entries, err := os.ReadDir(projects)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if ctx.Err() != nil {
+				return out
+			}
+			if !e.IsDir() {
+				continue
+			}
+			ref := ResolveProject(filepath.Join(projects, e.Name()), e.Name())
+			if ref.Path != "" {
+				out = append(out, ref.Path)
+			}
+		}
+	}
+	return out
 }

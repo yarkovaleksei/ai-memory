@@ -118,6 +118,24 @@ func TestInstallSkill(t *testing.T) {
 		})
 	}
 
+	// После отката копии остаются пустые каталоги — симлинк встаёт на их
+	// место (найдено на приёмке фазы 4).
+	notes := e.findIn(t, model.KindSkill, "release-notes", "release-notes")
+	res := e.apply(t)(e.plans.InstallSkill(ctx, notes.ID, "agents", false))
+	e.apply(t)(e.history.Revert(ctx, res.Commit, ""))
+	dir := filepath.Join(e.home, ".agents", "skills", "release-notes")
+	if _, err := os.Stat(filepath.Join(dir, "scripts")); err != nil {
+		t.Fatalf("ожидались пустые каталоги после отката копии: %v", err)
+	}
+	res = e.apply(t)(e.plans.InstallSkill(ctx, notes.ID, "agents", true))
+	if _, err := os.Readlink(dir); err != nil {
+		t.Fatalf("симлинк на месте пустых каталогов: %v", err)
+	}
+	e.apply(t)(e.history.Revert(ctx, res.Commit, ""))
+	if _, err := os.Lstat(dir); !os.IsNotExist(err) {
+		t.Errorf("после отката симлинка осталось: %v", err)
+	}
+
 	if _, err := e.plans.InstallSkill(ctx, e.findIn(t, model.KindSkill, "release-notes", "release-notes").ID, "bogus", false); errCode(err) != "skill.target-invalid" {
 		t.Errorf("чужой ключ: %v", err)
 	}

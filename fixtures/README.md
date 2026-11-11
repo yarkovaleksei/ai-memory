@@ -32,7 +32,7 @@ export AI_MEMORY_DATA_DIR="$PWD/.task/ai-memory-data"
 | там же, `release-flow.md` | Ссылка `[[prefer-yarn]]` на другой факт |
 | `.claude/projects/-home-me-projects-my-app-v2/` | Нет `*.jsonl`: путь не восстанавливается, показываем закодированное имя; `legacy-type.md` — старый формат с `type` на верхнем уровне |
 | `.claude/projects/-tmp-scratch-42/` | Временный проект (Q7) |
-| `.claude/projects/-home-me-projects-empty/` | Проект без каталога `memory/` |
+| `.claude/projects/-home-me-projects-empty/` | Проект без каталога `memory/`: путь берётся из сессии, и в списке видны его инструкции из `projects/empty/CLAUDE.md` (ADR-025) |
 | `.claude-work/projects/-home-me-projects-demo/` | Тот же проект во втором профиле; `yarn-only.md` — дубль факта `prefer-yarn` |
 | `.claude/skills/`, `CLAUDE.md` в обоих профилях | Навык и глобальные инструкции (фаза 4) |
 | `.claude/skills/release-notes/scripts/last-tag.sh` | Исполняемый скрипт навыка: копия навыка в другого агента сохраняет права |

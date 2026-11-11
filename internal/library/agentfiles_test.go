@@ -120,3 +120,34 @@ func TestRelevant(t *testing.T) {
 		}
 	}
 }
+
+// Проект без памяти Claude, но с сессиями: его инструкции видны (ADR-025).
+func TestRebuildReadsProjectWithoutMemory(t *testing.T) {
+	home := copyFixtures(t)
+	relocate(t, home)
+	cfg := configFor(home, t.TempDir())
+	lib := openLibrary(t, cfg)
+	ctx := context.Background()
+	if _, err := lib.Rebuild(ctx); err != nil {
+		t.Fatal(err)
+	}
+	empty := filepath.Join(home, "projects", "empty")
+	projects, err := lib.Projects(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range projects {
+		if p.Path != empty {
+			continue
+		}
+		page, err := lib.Search(ctx, index.Query{ProjectID: p.ID})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(page.Hits) != 1 || page.Hits[0].Kind != model.KindInstructions || page.Hits[0].Title != "CLAUDE.md" {
+			t.Errorf("записи проекта без памяти: %+v", page.Hits)
+		}
+		return
+	}
+	t.Fatalf("проекта %s нет среди %+v", empty, projects)
+}

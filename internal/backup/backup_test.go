@@ -72,3 +72,32 @@ func TestRecordLogAndFileAt(t *testing.T) {
 		t.Errorf("после повторного открытия: %d операций", len(log2))
 	}
 }
+
+// Путь бывает то каталогом копии навыка, то симлинком (в зеркале — файлом с
+// целью): зеркало переживает смену вида в обе стороны (ADR-023).
+func TestRecordFileReplacesDirAndBack(t *testing.T) {
+	ctx := context.Background()
+	r, err := Open(ctx, t.TempDir())
+	if err != nil {
+		t.Skipf("git недоступен: %v", err)
+	}
+	skill := "/home/me/.agents/skills/x"
+	steps := [][]File{
+		{{Path: skill + "/SKILL.md", Exists: true, Content: []byte("a")}, {Path: skill + "/scripts/run.sh", Exists: true, Content: []byte("b")}},
+		{{Path: skill + "/SKILL.md"}, {Path: skill + "/scripts/run.sh"}}, // откат копии: каталоги в зеркале остаются
+		{{Path: skill}}, // снимок перед симлинком: файла по пути нет
+		{{Path: skill, Exists: true, Content: []byte("/target")}},
+		{{Path: skill}},
+		{{Path: skill + "/SKILL.md", Exists: true, Content: []byte("c")}},
+	}
+	var last string
+	for i, files := range steps {
+		if last, err = r.Record(ctx, files, "шаг", map[string]int{"step": i}); err != nil {
+			t.Fatalf("шаг %d: %v", i, err)
+		}
+	}
+	got, err := r.FileAt(ctx, last, skill+"/SKILL.md")
+	if err != nil || string(got.Content) != "c" {
+		t.Errorf("итог: %q %v", got.Content, err)
+	}
+}
