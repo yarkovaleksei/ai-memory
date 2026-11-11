@@ -2,9 +2,18 @@
 
 [Русская версия](README.md)
 
-A desktop app for the memory of Claude Code and Codex: browse it by project, search it, edit and delete entries, move facts from one agent to the other, and merge duplicates.
+A desktop app for the memory of Claude Code and Codex: memory, instructions and skills of both agents on one screen, editing with undo, and moving things from one agent to the other.
 
-> **Status:** phases 1 (browsing), 2 (editing), 3 (cross-agent), 4 (instructions and skills) and 5 (the MCP bridge) are done. Phase 6, packaging, is in progress: packages for all three systems build, but so far they are tested on Linux only. The window shows Claude Code and Codex memory by project, with search; Claude facts can be edited, created and deleted, and Codex gets notes. Records move between agents, and the ones checked in the list can be merged and checked for contradictions, optionally with a draft from the model. Instructions (`CLAUDE.md`, `AGENTS.md`, rules) and skills sit next to the memory: a rule moves between `CLAUDE.md` and `AGENTS.md` as a section, and a skill is installed into the other agent as a copy or a symlink. Through the `ai-memory-mcp` bridge, an agent searches the other agent's memory while it works. Every write goes through a diff, a backup and a history with undo; writing needs `git`. Work follows the [plan](plan/README.md). How to run and check it: the commands section of [AGENTS.md](AGENTS.md). The plan and the developer docs are written in Russian.
+> **Status:** phases 1–5 are done. Phase 6, packaging, is in progress: packages for all three systems build, but so far they are tested on Linux only. Work follows the [plan](plan/README.md); how to run and check it: the commands section of [AGENTS.md](AGENTS.md). The plan and the developer docs are written in Russian.
+
+## What it does
+
+- Shows Claude Code and Codex memory by project, with filters and full-text search.
+- Edits, creates and deletes Claude facts; for Codex it writes notes that Codex merges into its memory itself.
+- Moves records between agents, merges the duplicates you select and looks for contradictions among them, optionally with a draft from the model.
+- Shows instructions (`CLAUDE.md`, `AGENTS.md`, rules) and skills next to the memory: moves a rule between `CLAUDE.md` and `AGENTS.md` as a section, installs a skill into the other agent as a copy or a symlink.
+- Through the `ai-memory-mcp` bridge, an agent searches the other agent's memory while it works.
+- Every write goes through a diff, a backup and a history with undo; writing needs `git`.
 
 ## Why
 
