@@ -24,6 +24,48 @@ tasks:
     cmds:
       - task: "{{.GOOS}}:build"
 
+  build:mcp:
+    summary: Собрать MCP-мост bin/ai-memory-mcp — без Wails, GTK и фронтенда
+    vars:
+      EXT: '{{if eq .GOOS "windows"}}.exe{{end}}'
+    env:
+      GOOS: "{{.GOOS}}"
+    cmds:
+      - go build -trimpath -o {{.BIN_DIR}}/ai-memory-mcp{{.EXT}} ./cmd/ai-memory-mcp
+
+  mcp:dev:
+    summary: Собрать MCP-мост и напечатать команды, которые подключают его к Claude Code и Codex на копии фикстур
+    vars:
+      FX: "{{.ROOT_DIR}}/.task/dev-home"
+      BIN: "{{.ROOT_DIR}}/{{.BIN_DIR}}/ai-memory-mcp"
+      CFG: "{{.ROOT_DIR}}/.task/mcp-claude.json"
+    # Мост подключается только на время запуска агента: флагом --mcp-config у
+    # Claude Code и -c у Codex. В ~/.claude* и ~/.codex ничего не пишется.
+    # Окружение направляет мост на копию фикстур, как у `dev`.
+    cmds:
+      - task: build:mcp
+      - go run ./cmd/devhome fixtures/home .task/dev-home
+      - silent: true
+        cmd: |
+          cat > "{{.CFG}}" <<EOF
+          {"mcpServers": {"ai-memory": {"command": "{{.BIN}}", "args": ["-agent", "claude"], "env": {
+            "AI_MEMORY_CLAUDE_DIRS": "{{.FX}}/.claude:{{.FX}}/.claude-work",
+            "AI_MEMORY_CODEX_HOME": "{{.FX}}/.codex",
+            "AI_MEMORY_AGENTS_DIR": "{{.FX}}/.agents",
+            "AI_MEMORY_DATA_DIR": "{{.ROOT_DIR}}/.task/ai-memory-data",
+            "AI_MEMORY_CONFIG_DIR": "{{.ROOT_DIR}}/.task/ai-memory-config"}}}}
+          EOF
+      - silent: true
+        cmd: |
+          echo
+          echo "Claude Code:"
+          echo "  cd {{.FX}}/projects/demo && claude --strict-mcp-config --mcp-config {{.CFG}}"
+          echo
+          echo "Codex:"
+          echo "  cd {{.FX}}/projects/demo && codex \\"
+          echo "    -c 'mcp_servers.ai-memory.command=\"{{.BIN}}\"' -c 'mcp_servers.ai-memory.args=[\"-agent\",\"codex\"]' \\"
+          echo "    -c 'mcp_servers.ai-memory.env={AI_MEMORY_CLAUDE_DIRS=\"{{.FX}}/.claude:{{.FX}}/.claude-work\",AI_MEMORY_CODEX_HOME=\"{{.FX}}/.codex\",AI_MEMORY_AGENTS_DIR=\"{{.FX}}/.agents\",AI_MEMORY_DATA_DIR=\"{{.ROOT_DIR}}/.task/ai-memory-data\",AI_MEMORY_CONFIG_DIR=\"{{.ROOT_DIR}}/.task/ai-memory-config\"}'"
+
   package:
     summary: Собрать установочный пакет для текущей ОС
     cmds:
@@ -77,10 +119,9 @@ tasks:
           DEV: "true"
 
   test:go:
-    summary: Тесты ядра на Go (без окна и без собранного фронтенда)
-    # cmd/ai-memory-mcp появится в фазе 5 — тогда добавить ./cmd/... сюда.
+    summary: Тесты ядра и MCP-моста на Go (без окна и без собранного фронтенда)
     cmds:
-      - go test ./internal/...
+      - go test ./internal/... ./cmd/...
 
   test:frontend:
     summary: Тесты фронтенда (Vitest)

@@ -53,10 +53,20 @@ type watchedSource struct {
 
 // New открывает индекс в каталоге данных и готовит адаптеры по конфигурации.
 func New(cfg config.Config, log *slog.Logger) (*Library, error) {
+	return open(cfg, filepath.Join(filepath.FromSlash(cfg.DataDir), IndexFile), log)
+}
+
+// NewInMemory — то же с индексом в памяти: каталог данных не трогается. Так
+// работает MCP-мост (ADR-026): он только читает и не делит файл индекса с окном.
+func NewInMemory(cfg config.Config, log *slog.Logger) (*Library, error) {
+	return open(cfg, ":memory:", log)
+}
+
+func open(cfg config.Config, path string, log *slog.Logger) (*Library, error) {
 	if log == nil {
 		log = slog.Default()
 	}
-	ix, err := index.Open(filepath.Join(filepath.FromSlash(cfg.DataDir), IndexFile))
+	ix, err := index.Open(path)
 	if err != nil {
 		return nil, err
 	}

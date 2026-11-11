@@ -4,7 +4,7 @@
 
 A desktop app for the memory of Claude Code and Codex: browse it by project, search it, edit and delete entries, move facts from one agent to the other, and merge duplicates.
 
-> **Status:** phases 1 (browsing), 2 (editing), 3 (cross-agent) and 4 (instructions and skills) are done; next is phase 5, the MCP bridge. The window shows Claude Code and Codex memory by project, with search; Claude facts can be edited, created and deleted, and Codex gets notes. Records move between agents, and the ones checked in the list can be merged and checked for contradictions, optionally with a draft from the model. Instructions (`CLAUDE.md`, `AGENTS.md`, rules) and skills sit next to the memory: a rule moves between `CLAUDE.md` and `AGENTS.md` as a section, and a skill is installed into the other agent as a copy or a symlink. Every write goes through a diff, a backup and a history with undo; writing needs `git`. Work follows the [plan](plan/README.md). How to run and check it: the commands section of [AGENTS.md](AGENTS.md). The plan and the developer docs are written in Russian.
+> **Status:** phases 1 (browsing), 2 (editing), 3 (cross-agent), 4 (instructions and skills) and 5 (the MCP bridge) are done; next is phase 6, packaging. The window shows Claude Code and Codex memory by project, with search; Claude facts can be edited, created and deleted, and Codex gets notes. Records move between agents, and the ones checked in the list can be merged and checked for contradictions, optionally with a draft from the model. Instructions (`CLAUDE.md`, `AGENTS.md`, rules) and skills sit next to the memory: a rule moves between `CLAUDE.md` and `AGENTS.md` as a section, and a skill is installed into the other agent as a copy or a symlink. Through the `ai-memory-mcp` bridge, an agent searches the other agent's memory while it works. Every write goes through a diff, a backup and a history with undo; writing needs `git`. Work follows the [plan](plan/README.md). How to run and check it: the commands section of [AGENTS.md](AGENTS.md). The plan and the developer docs are written in Russian.
 
 ## Why
 
@@ -43,6 +43,44 @@ extra_claude_profiles = ["~/.claude-work", "~/.claude-personal"]
 ```
 
 A directory listed twice, including through a symlink, is read once. Settings are read at startup; restart the app after editing them.
+
+## MCP bridge
+
+`ai-memory-mcp` is a separate binary with no window, Wails or GTK. The agent itself runs it as a stdio MCP server, and while it works it can find what the other agent knows about the project. The tools only read:
+
+| Tool | What it does |
+|---|---|
+| `list_projects` | visible projects and the current one |
+| `search_memory(query?, project?, agent?, kind?, limit?)` | short results: id, title, description, snippet, record kind (`memory`, `instructions`, `skill`). By default, the other agent's records for the current project |
+| `get_memory(id)` | the whole record |
+
+The bridge writes nothing: neither to agent memory nor to the ai-memory data directory. It keeps its index in process memory and re-reads the files at most every 10 seconds. Memory roots are the same as the window's: environment variables and `config.toml`.
+
+Build it with `wails3 task build:mcp`; the binary lands in `bin/`. Connect it for all projects (use your own path):
+
+```bash
+claude mcp add --scope user ai-memory -- /home/me/bin/ai-memory-mcp -agent claude
+```
+
+In Codex, run `codex mcp add ai-memory -- /home/me/bin/ai-memory-mcp -agent codex` or add a section to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.ai-memory]
+command = "/home/me/bin/ai-memory-mcp"
+args = ["-agent", "codex"]
+```
+
+Server flags:
+
+| Flag | Effect |
+|---|---|
+| `-agent claude\|codex` | who connects: search defaults to the other agent's memory. Without it, guessed from the client name |
+| `-project <dir>` | project directory. Default: the working directory the agent started the server in |
+| `-global` | also show global memory: shared facts, global `CLAUDE.md` and `AGENTS.md`, user skills |
+| `-all-projects` | show every project, not only the current one; search accepts `project: "all"` |
+| `-refresh 10s` | how often to re-read memory |
+
+Visibility is set by flags only: the agent cannot widen it through tool arguments. The decision and its reasons: [ADR-026](plan/decisions.md#adr-026-mcp-мост-свой-индекс-в-памяти-текущий-проект-память-другого-агента) (in Russian).
 
 ## Planned features
 

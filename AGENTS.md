@@ -76,6 +76,8 @@ wails3 task typecheck    # tsc --noEmit
 wails3 task fmt          # отформатировать Go и фронтенд
 wails3 task bindings     # перегенерировать frontend/bindings после изменения сервисов в internal/app
 wails3 task build        # собрать бинарь в bin/
+wails3 task build:mcp    # собрать MCP-мост bin/ai-memory-mcp (без Wails и фронтенда)
+wails3 task mcp:dev      # то же плюс команды, которые подключают мост к Claude Code и Codex на копии фикстур
 ```
 
 - Перед коммитом должна проходить `wails3 task check`.

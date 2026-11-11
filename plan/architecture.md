@@ -34,7 +34,8 @@
                                 │ файловая система
         ~/.claude*/projects/*/memory          ~/.codex/memories_v2
 
-cmd/ai-memory-mcp  — отдельный бинарь, MCP-сервер поверх того же ядра (фаза 5)
+cmd/ai-memory-mcp  — отдельный бинарь: stdio MCP-сервер из internal/bridge поверх того же ядра,
+                     со своим индексом в памяти процесса (фаза 5, ADR-026)
 ```
 
 Правило зависимостей: ядро не импортирует `internal/app`, Wails и ничего из `frontend/`. Весь Wails-специфичный код живёт в `internal/app` и `main.go`.
@@ -54,9 +55,10 @@ internal/
   writer/               планы записи и их применение
   backup/               репозиторий бэкапов
   llm/                  вызовы CLI агентов (фаза 3)
+  bridge/               инструменты MCP-моста только на чтение (фаза 5)
   config/               корни памяти, переменные окружения
   app/                  сервисы Wails
-cmd/ai-memory-mcp/      MCP-сервер (фаза 5)
+cmd/ai-memory-mcp/      MCP-сервер: флаги и stdio (фаза 5)
 frontend/               Vite + React + react-admin, yarn 4
 fixtures/               поддельные каталоги памяти для тестов
 build/                  ресурсы сборки Wails

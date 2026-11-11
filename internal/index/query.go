@@ -16,7 +16,10 @@ import (
 const KindMemory = "memory"
 
 type Query struct {
-	ProjectID    string // пусто — все проекты
+	ProjectID string // пусто — все проекты
+	// ProjectIDs — несколько проектов сразу (MCP-мост: текущий и глобальная
+	// память); вместе с ProjectID — пересечение.
+	ProjectIDs   []string
 	Agent        string
 	Kind         string
 	Type         string
@@ -84,9 +87,15 @@ func (ix *Index) Search(ctx context.Context, q Query) (Page, error) {
 		where = append(where, cond)
 		args = append(args, v)
 	}
+	if len(q.ProjectIDs) > 0 {
+		where = append(where, "i.project_id IN (?"+strings.Repeat(", ?", len(q.ProjectIDs)-1)+")")
+		for _, id := range q.ProjectIDs {
+			args = append(args, id)
+		}
+	}
 	if q.ProjectID != "" {
 		add("i.project_id = ?", q.ProjectID)
-	} else if !q.IncludeTemp {
+	} else if !q.IncludeTemp && len(q.ProjectIDs) == 0 {
 		where = append(where, "i.temp = 0")
 	}
 	if q.Agent != "" {
