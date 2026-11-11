@@ -69,7 +69,12 @@ func ReadSkill(src model.Source, dir, role string, write model.WriteMode, ref mo
 	}
 	if real, err := filepath.EvalSymlinks(dir); err == nil {
 		it.RealDir = real
-		if !samePath(real, dir) {
+		// Симлинком подключён сам каталог навыка, а не кто-то из его предков:
+		// временный каталог macOS лежит под /var → /private/var, а на Windows
+		// путь бывает записан коротким именем (RUNNER~1). Поэтому настоящий
+		// путь сравнивается с настоящим путём родителя плюс имя каталога.
+		if parent, err := filepath.EvalSymlinks(filepath.Dir(dir)); err == nil &&
+			!samePath(real, filepath.Join(parent, filepath.Base(dir))) {
 			it.Target = real
 		}
 	}

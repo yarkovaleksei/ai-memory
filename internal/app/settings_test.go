@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/yarkovaleksei/ai-memory/internal/config"
@@ -19,7 +20,8 @@ func TestSettingsSaveAppliesWithoutRestart(t *testing.T) {
 	copyDir(t, src, home)
 	// Второй профиль — копия первого под другим именем.
 	copyDir(t, filepath.Join(home, ".claude"), filepath.Join(home, ".claude-personal"))
-	env := config.Env{GOOS: "linux", Home: home, ListSep: ":", Getenv: func(k string) string {
+	// ОС текущая, а не подставная: пути из t.TempDir() настоящие.
+	env := config.Env{GOOS: runtime.GOOS, Home: home, ListSep: string(os.PathListSeparator), Getenv: func(k string) string {
 		if k == config.EnvConfigDir {
 			return filepath.Join(home, "cfg")
 		}

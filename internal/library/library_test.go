@@ -133,7 +133,7 @@ func TestRebuildOnFixtures(t *testing.T) {
 	}
 	var demo *model.Project
 	for i := range projects {
-		if projects[i].Path == "/home/me/projects/demo" {
+		if filepath.ToSlash(projects[i].Path) == "/home/me/projects/demo" {
 			if demo != nil {
 				t.Fatal("проект demo встречается дважды")
 			}

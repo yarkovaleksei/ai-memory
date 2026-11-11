@@ -272,6 +272,10 @@ func (r *Repo) runBytes(ctx context.Context, stdin io.Reader, args ...string) ([
 		"-C", r.dir,
 		"-c", "commit.gpgsign=false",
 		"-c", "core.autocrlf=false",
+		// Пути в бэкапе повторяют абсолютные пути памяти и на Windows легко
+		// длиннее MAX_PATH (260): без longpaths git add падает с
+		// «Filename too long». На других ОС флаг ничего не меняет.
+		"-c", "core.longpaths=true",
 		"-c", "core.quotepath=false",
 		"-c", "init.defaultBranch=main",
 	}, args...)

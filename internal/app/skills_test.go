@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -95,7 +96,8 @@ func TestInstallSkill(t *testing.T) {
 					t.Errorf("нет %s: %v", f, err)
 				}
 			}
-			if strings.Contains(strings.Join(tt.files, ","), "last-tag.sh") {
+			// На Windows бита исполнения нет: os.Stat всегда даёт rw-rw-rw-.
+			if runtime.GOOS != "windows" && strings.Contains(strings.Join(tt.files, ","), "last-tag.sh") {
 				if fi, _ := os.Stat(filepath.Join(tt.dir, "scripts", "last-tag.sh")); fi == nil || fi.Mode().Perm()&0o100 == 0 {
 					t.Error("скрипт навыка потерял права на исполнение")
 				}

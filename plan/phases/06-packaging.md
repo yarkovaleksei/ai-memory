@@ -15,6 +15,7 @@
 - [x] Бинарь MCP-моста ставится вместе с приложением и находится по известному пути на каждой системе: `/usr/bin/ai-memory-mcp`, `/Applications/ai-memory.app/Contents/MacOS/ai-memory-mcp`, `%LOCALAPPDATA%\Programs\ai-memory\ai-memory-mcp.exe`.
 - [x] Навыки сборки и выпуска `ai-memory-build` и `ai-memory-release` по образцу проектов владельца: черновик релиза, сверка вложений по API, проверки `smoke:mcp` и `smoke:desktop` ([ADR-030](../decisions.md#adr-030-релиз-выкладывается-черновиком-и-публикуется-после-сверки-по-api)).
 - [x] Версия приложения видна в интерфейсе и в `ai-memory-mcp --version`. Берётся из тега `vX.Y.Z` (`wails3 task version`) и вшивается в оба бинаря.
+- [ ] Проверки `check.yml` проходят на macOS и Windows. Первый прогон после push упал: на macOS временный каталог лежит за симлинком `/var → /private/var`, и свой навык считался подключённым симлинком; на Windows — CRLF в фикстурах (нужен `.gitattributes`), «Filename too long» в git бэкапа (`core.longpaths`), `syscall.Flock` в тестах, бит исполнения и пути в тестах. Исправлено, проверено на Linux с `TMPDIR` за симлинком и кросс-компиляцией под Windows и macOS; на самих системах — ждёт прогона CI.
 
 ### Ручная приёмка
 - [x] Linux, локально (2026-11-11): `wails3 task linux:package APP_VERSION=0.6.0` собирает deb, rpm и пакет Arch. В deb — `/usr/bin/ai-memory` и `/usr/bin/ai-memory-mcp`, версия 0.6.0, зависимости `libgtk-4-1` и `libwebkitgtk-6.0-4`; `ai-memory-mcp -version` печатает 0.6.0. Содержимое rpm и пакета Arch не проверено: на машине нет `rpm` и `bsdtar`.

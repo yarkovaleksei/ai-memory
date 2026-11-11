@@ -1,0 +1,7 @@
+# Концы строк в репозитории — LF на всех ОС. Тесты сравнивают фикстуры и
+# ожидания байт в байт, а git на Windows по умолчанию отдал бы их с CRLF.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.icns binary

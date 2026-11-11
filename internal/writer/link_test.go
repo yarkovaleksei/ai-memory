@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -35,7 +36,8 @@ func TestLinkApplyAndRevert(t *testing.T) {
 	if got, err := os.Readlink(link); err != nil || got != target {
 		t.Fatalf("симлинк: %q %v", got, err)
 	}
-	if fi, err := os.Stat(script); err != nil || fi.Mode().Perm()&0o100 == 0 {
+	// На Windows бита исполнения нет: os.Stat всегда даёт rw-rw-rw-.
+	if fi, err := os.Stat(script); runtime.GOOS != "windows" && (err != nil || fi.Mode().Perm()&0o100 == 0) {
 		t.Errorf("скрипт не исполняемый: %v %v", fi.Mode(), err)
 	}
 
@@ -68,7 +70,7 @@ func TestLinkApplyAndRevert(t *testing.T) {
 	if got, _ := os.Readlink(link); got != target {
 		t.Errorf("симлинк после отката отката: %q", got)
 	}
-	if fi, err := os.Stat(script); err != nil || fi.Mode().Perm()&0o100 == 0 {
+	if fi, err := os.Stat(script); runtime.GOOS != "windows" && (err != nil || fi.Mode().Perm()&0o100 == 0) {
 		t.Errorf("скрипт после отката отката: %v %v", fi.Mode(), err)
 	}
 }

@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -64,7 +65,7 @@ func TestRecordLogAndFileAt(t *testing.T) {
 	}
 
 	// Повторное открытие не пересоздаёт репозиторий.
-	r2, err := Open(ctx, strings.TrimSuffix(r.Dir(), "/"+Dir))
+	r2, err := Open(ctx, filepath.Dir(r.Dir()))
 	if err != nil {
 		t.Fatal(err)
 	}

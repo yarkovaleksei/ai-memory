@@ -171,7 +171,18 @@ const skillMD = "---\nname: shared\ndescription: Общий навык.\n---\n\n
 // Навык из ~/.agents подключён в оба профиля Claude симлинками: три записи,
 // все общие, каждая ссылается на две другие. Отдельный навык профиля — не общий.
 func TestSharedSkills(t *testing.T) {
-	root := t.TempDir()
+	t.Run("обычный каталог", func(t *testing.T) { sharedSkills(t, t.TempDir()) })
+	// Все каталоги — под симлинком, как временный каталог macOS
+	// (/var → /private/var): свой навык не должен стать «подключённым
+	// симлинком» из-за предка.
+	t.Run("каталог за симлинком", func(t *testing.T) {
+		link := filepath.Join(t.TempDir(), "link")
+		symlink(t, t.TempDir(), link)
+		sharedSkills(t, link)
+	})
+}
+
+func sharedSkills(t *testing.T, root string) {
 	agents := filepath.Join(root, ".agents")
 	write(t, filepath.Join(agents, "skills", "shared", "SKILL.md"), skillMD)
 	symlink(t, filepath.Join("..", "..", ".agents", "skills", "shared"), filepath.Join(root, ".claude", "skills", "shared"))

@@ -8,8 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
-	"syscall"
+	"sync"
 	"testing"
 	"time"
 
@@ -202,24 +201,13 @@ func TestGuardWaitsForConsolidation(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("lock занят (Codex 0.167)", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("проверяется flock; LockFileEx — на Windows в CI")
-		}
 		home := copyHome(t)
-		lockPath := filepath.Join(home, GenV2.LockFile())
-		f, err := os.OpenFile(lockPath, os.O_RDWR|os.O_CREATE, 0o644)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer f.Close()
-		if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-			t.Fatal(err)
-		}
+		unlock := holdLock(t, filepath.Join(home, GenV2.LockFile()))
 		p, _ := PlanNewNote(home, GenV2, "t", "b")
 		if _, err := newWriter(t, home, GenV2).Apply(ctx, p); failCode(err) != "codex.consolidation-running" {
 			t.Errorf("код = %v", err)
 		}
-		_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		unlock()
 		p, _ = PlanNewNote(home, GenV2, "t", "b")
 		if _, err := newWriter(t, home, GenV2).Apply(ctx, p); err != nil {
 			t.Errorf("после снятия lock: %v", err)
@@ -339,19 +327,9 @@ func makeJobsDB(t *testing.T, path, status string, lease, finished int64) {
 // AGENTS.md и пользовательские навыки в CODEX_HOME правятся, и консолидация
 // им не мешает: это не память, блокировка Codex не берётся.
 func TestGuardAllowsInstructionsAndSkills(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("проверяется flock; LockFileEx — на Windows в CI")
-	}
 	ctx := context.Background()
 	home := copyHome(t)
-	f, err := os.OpenFile(filepath.Join(home, GenV2.LockFile()), os.O_RDWR|os.O_CREATE, 0o644)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		t.Fatal(err)
-	}
+	defer holdLock(t, filepath.Join(home, GenV2.LockFile()))()
 	for _, path := range []string{
 		filepath.Join(home, "AGENTS.md"),
 		filepath.Join(home, "skills", "lint-fix", "SKILL.md"),
@@ -389,4 +367,24 @@ func TestGuardRevertRemovesCreatedInstructions(t *testing.T) {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("AGENTS.md остался после отката: %v", err)
 	}
+}
+
+// holdLock держит блокировку Codex, как во время консолидации. Берётся тем же
+// tryLock, что и у writer'а: на Linux и macOS это flock, на Windows —
+// LockFileEx, и обе конфликтуют со второй попыткой даже из того же процесса.
+func holdLock(t *testing.T, path string) (unlock func()) {
+	t.Helper()
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
+	unlock, busy, err := tryLock(path)
+	if err != nil || busy {
+		t.Fatalf("блокировка %s: busy=%v %v", path, busy, err)
+	}
+	// Снять дважды нельзя: дескриптор к Cleanup может достаться другому файлу.
+	once := sync.OnceFunc(unlock)
+	t.Cleanup(once)
+	return once
 }
