@@ -58,7 +58,7 @@ extra_claude_profiles = ["~/.claude-work", "~/.claude-personal"]
 | macOS 12+, Apple Silicon и Intel | `ai-memory-X.Y.Z-macos-universal.dmg` | «Программы» → ai-memory | `/Applications/ai-memory.app/Contents/MacOS/ai-memory-mcp` |
 | Windows 10 и 11, x64 | `ai-memory-X.Y.Z-windows-amd64-setup.exe` | меню «Пуск» и ярлык на рабочем столе | `%LOCALAPPDATA%\Programs\ai-memory\ai-memory-mcp.exe` |
 
-**Linux.** Пакет ставится обычным менеджером пакетов и сам подтянет GTK 4 и WebKitGTK 6.0:
+**Linux.** Пакет ставится обычным менеджером пакетов и сам подтянет GTK 4 и WebKitGTK 6.0. В Ubuntu deb заодно ставит профиль AppArmor `/etc/apparmor.d/ai-memory`: без него песочница WebKit не запускается, и окно из меню не открывается ([ADR-028](plan/decisions.md#adr-028-deb-ставит-профиль-apparmor-с-правилом-userns)).
 
 ```bash
 sudo apt install ./ai-memory_X.Y.Z_amd64.deb

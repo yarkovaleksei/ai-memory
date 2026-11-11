@@ -56,7 +56,7 @@ Packages are in the [GitHub releases](https://github.com/yarkovaleksei/ai-memory
 | macOS 12+, Apple Silicon and Intel | `ai-memory-X.Y.Z-macos-universal.dmg` | Applications → ai-memory | `/Applications/ai-memory.app/Contents/MacOS/ai-memory-mcp` |
 | Windows 10 and 11, x64 | `ai-memory-X.Y.Z-windows-amd64-setup.exe` | Start menu and a desktop shortcut | `%LOCALAPPDATA%\Programs\ai-memory\ai-memory-mcp.exe` |
 
-**Linux.** Install with the usual package manager; it pulls in GTK 4 and WebKitGTK 6.0:
+**Linux.** Install with the usual package manager; it pulls in GTK 4 and WebKitGTK 6.0. On Ubuntu the deb also installs the AppArmor profile `/etc/apparmor.d/ai-memory`: without it the WebKit sandbox cannot start and the window does not open from the menu ([ADR-028](plan/decisions.md#adr-028-deb-ставит-профиль-apparmor-с-правилом-userns)).
 
 ```bash
 sudo apt install ./ai-memory_X.Y.Z_amd64.deb

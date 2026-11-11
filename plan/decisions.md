@@ -463,3 +463,20 @@
 - При первом запуске пользователь macOS и Windows видит предупреждение системы. Обходить его ai-memory не пытается.
 - Пакеты для macOS и Windows собираются в CI, но запустить их негде, пока у проекта нет машин или раннеров с этими системами. Установщик Windows кросс-собирается и на Linux (`makensis`); универсальный `.app` и `.dmg` — только на macOS.
 - Arm64 для Linux и Windows не собирается. Добавить его — строка в матрице CI и `ARCH=arm64`, если появится спрос.
+
+## ADR-028. deb ставит профиль AppArmor с правилом userns
+
+**Статус:** принято (2026-11-11). Уточняет [ADR-027](#adr-027-упаковка-без-подписи-deb-rpm-arch-dmg-и-nsis-с-mcp-мостом).
+
+**Контекст.** На приёмке фазы 6 окно из deb не открывалось из меню Ubuntu: процесс падал при старте с SIGTRAP в `webkit_web_view_evaluate_javascript`. WebKitGTK запускает свою песочницу через bubblewrap в user namespace. В Ubuntu 23.10+ включён `kernel.apparmor_restrict_unprivileged_userns=1`, и программе без своего профиля AppArmor создать его не даёт: в журнале ядра — `apparmor="DENIED" … comm="bwrap"`. Из терминала окно запускалось, потому что наследовало профиль терминала с правом на userns, и разработка этого не замечала.
+
+**Решение.**
+- deb ставит `/etc/apparmor.d/ai-memory` — профиль для `/usr/bin/ai-memory` с `flags=(unconfined)` и единственным правилом `userns`, как у Chrome и VS Code в Ubuntu. Права приложения он не сужает и не расширяет ничем, кроме user namespace.
+- `postinstall` загружает профиль через `apparmor_parser -r`, если AppArmor включён, `preremove` выгружает его при удалении. Место для своих правил — `/etc/apparmor.d/local/ai-memory`.
+- Песочницу WebKit не отключаем (`WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS`): она изолирует веб-содержимое окна, и отключение было бы шагом назад.
+- rpm и пакет Arch профиля не несут: в Fedora SELinux, в Arch AppArmor по умолчанию выключен.
+
+**Последствия.**
+- Пакет пишет в `/etc/apparmor.d`. Это обычное место для профилей пакетов Ubuntu.
+- MCP-мосту профиль не нужен: у него нет WebKit и песочницы.
+- Проверять окно из пакета нужно запуском из меню, а не из терминала.

@@ -1,5 +1,14 @@
 #!/bin/sh
 
+# Профиль AppArmor (только в deb, ADR-028): загрузить сразу, чтобы окно
+# запускалось из меню без перезагрузки. Где AppArmor нет или он выключен,
+# ничего не делаем.
+if [ -f /etc/apparmor.d/ai-memory ] && command -v apparmor_parser >/dev/null 2>&1 &&
+  [ "$(cat /sys/module/apparmor/parameters/enabled 2>/dev/null)" = "Y" ]; then
+  apparmor_parser -r -T -W /etc/apparmor.d/ai-memory ||
+    echo "Warning: AppArmor profile for ai-memory was not loaded." >&2
+fi
+
 # Update desktop database for .desktop file changes
 # This makes the application appear in application menus and registers its capabilities.
 if command -v update-desktop-database >/dev/null 2>&1; then

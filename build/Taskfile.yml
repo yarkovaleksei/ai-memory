@@ -196,12 +196,13 @@ tasks:
     dir: build
     sources:
       - "appicon.png"
-      - "appicon.icon"
     generates:
       - "darwin/icons.icns"
       - "windows/icon.ico"
     cmds:
-      - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename windows/icon.ico -iconcomposerinput appicon.icon -macassetdir darwin
+      # Иконка — одна, build/appicon.png: из неё же .icns и .ico. Assets.car
+      # из шаблона Wails удалён, чтобы macOS не показывала иконку Wails.
+      - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename windows/icon.ico
 
   dev:frontend:
     summary: Runs the frontend in development mode

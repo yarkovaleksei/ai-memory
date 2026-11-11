@@ -27,6 +27,12 @@ var version = "0.0.1-dev"
 //go:embed all:frontend/dist
 var assets embed.FS
 
+// icon — иконка окна и панели задач на Linux (GTK берёт её из Options.Icon).
+// Тот же файл, из которого собираются .icns и .ico.
+//
+//go:embed build/appicon.png
+var icon []byte
+
 func main() {
 	env := config.FromEnvironment()
 	base, err := config.Load(env)
@@ -51,6 +57,7 @@ func main() {
 	wailsApp := application.New(application.Options{
 		Name:        "ai-memory",
 		Description: "Просмотр и правка памяти Claude Code и Codex",
+		Icon:        icon,
 		Services: []application.Service{
 			application.NewService(app.NewInfoService(version, rt)),
 			application.NewService(app.NewLibraryService(lib, slog.Default())),

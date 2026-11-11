@@ -1,0 +1,15 @@
+# Профиль AppArmor для окна ai-memory (ADR-028). Ничего не ограничивает
+# (flags=(unconfined)): он нужен только ради правила userns. В Ubuntu 23.10+
+# AppArmor запрещает программам без профиля создавать user namespace, а
+# WebKitGTK запускает в нём свою песочницу через bubblewrap. Без профиля окно,
+# открытое из меню, падает при старте. Так же устроены профили Chrome и VS Code.
+
+abi <abi/4.0>,
+include <tunables/global>
+
+profile ai-memory /usr/bin/ai-memory flags=(unconfined) {
+  userns,
+
+  # Site-specific additions and overrides. See local/README for details.
+  include if exists <local/ai-memory>
+}
