@@ -46,7 +46,7 @@ A directory listed twice, including through a symlink, is read once. Settings ar
 
 ## Installation
 
-Packages are in the [GitHub releases](https://github.com/yarkovaleksei/ai-memory/releases), together with `SHA256SUMS`. The MCP bridge `ai-memory-mcp` is installed with the window. The packages are not signed ([ADR-027](plan/decisions.md#adr-027-упаковка-без-подписи-deb-rpm-arch-dmg-и-nsis-с-mcp-мостом)), so macOS and Windows ask for confirmation on first launch. How to give it is below.
+Packages are in the [GitHub releases](https://github.com/yarkovaleksei/ai-memory/releases); checksums are in `SHA256SUMS-<system>.txt`. The MCP bridge `ai-memory-mcp` is installed with the window. The packages are not signed ([ADR-027](plan/decisions.md#adr-027-упаковка-без-подписи-deb-rpm-arch-dmg-и-nsis-с-mcp-мостом)), so macOS and Windows ask for confirmation on first launch. How to give it is below.
 
 | System | Package | Window | MCP bridge |
 |---|---|---|---|
@@ -82,7 +82,7 @@ xattr -dr com.apple.quarantine /Applications/ai-memory.app
 
 **Updating** means installing the new package over the old one. The index, backups and settings live in the user's data and settings directories (see Privacy), and packages never touch them. They also stay after uninstalling; delete them by hand if you no longer need them.
 
-**From source:** `wails3 task package` builds the packages for the current system into `bin/`. Requirements: the commands section of [AGENTS.md](AGENTS.md).
+**From source:** `wails3 task package` builds the packages for the current system into `bin/`. Requirements: the commands section of [AGENTS.md](AGENTS.md). Release packages for Linux are built locally; macOS and Windows packages are built by GitHub Actions on a tag ([ADR-029](plan/decisions.md#adr-029-linux-собирается-локально-macos-и-windows--в-ci)).
 
 Tested on Linux only. The macOS and Windows packages are built in CI but have not been run on those systems yet. Where agent memory lives there is not verified either ([Q10](plan/open-questions.md)).
 

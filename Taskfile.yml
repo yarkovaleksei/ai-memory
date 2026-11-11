@@ -48,6 +48,43 @@ tasks:
     cmds:
       - go build -trimpath -buildvcs=false -ldflags="-s -w -X main.version={{.APP_VERSION}}" -o "{{.OUTPUT}}" ./cmd/ai-memory-mcp
 
+  release:
+    summary: Пакеты Linux для релиза в bin/release/<версия>/ с SHA256SUMS-linux.txt (ADR-029)
+    # Локально собирается только Linux: его владелец ставит и проверяет здесь.
+    # Windows и macOS собирает CI по тегу и сам прикладывает к релизу.
+    # Версия — только чистый тег vX.Y.Z на текущем коммите.
+    vars:
+      OUT: "{{.BIN_DIR}}/release/{{.APP_VERSION}}"
+    preconditions:
+      - sh: '[ "{{OS}}" = linux ]'
+        msg: "Пакеты Linux собираются только на Linux (GTK 4 и WebKitGTK через CGO)"
+      - sh: echo "{{.APP_VERSION}}" | grep -Eq '^[0-9]+[.][0-9]+[.][0-9]+$'
+        msg: "Релиз собирается только с чистого тега vX.Y.Z на текущем коммите, а версия сейчас {{.APP_VERSION}}"
+    cmds:
+      - task: linux:package
+      - rm -rf "{{.OUT}}" && mkdir -p "{{.OUT}}"
+      - cp {{.BIN_DIR}}/ai-memory.deb "{{.OUT}}/ai-memory_{{.APP_VERSION}}_amd64.deb"
+      - cp {{.BIN_DIR}}/ai-memory.rpm "{{.OUT}}/ai-memory-{{.APP_VERSION}}.x86_64.rpm"
+      - cp {{.BIN_DIR}}/ai-memory.pkg.tar.zst "{{.OUT}}/ai-memory-{{.APP_VERSION}}-x86_64.pkg.tar.zst"
+      - cd "{{.OUT}}" && sha256sum ai-memory* > SHA256SUMS-linux.txt
+      - ls -la "{{.OUT}}"
+
+  release:publish:
+    summary: Приложить пакеты Linux из bin/release/<версия>/ к релизу GitHub vX.Y.Z
+    # Тег должен уже быть на GitHub. Релиз создаёт тот, кто первый: эта задача
+    # или CI; второй только докладывает свои файлы.
+    vars:
+      OUT: "{{.BIN_DIR}}/release/{{.APP_VERSION}}"
+      TAG: "v{{.APP_VERSION}}"
+    preconditions:
+      - sh: command -v gh >/dev/null
+        msg: "Нужен GitHub CLI (gh) с входом в аккаунт: gh auth login"
+      - sh: '[ -f "{{.OUT}}/SHA256SUMS-linux.txt" ]'
+        msg: "Нет пакетов {{.OUT}}: сначала wails3 task release"
+    cmds:
+      - gh release view "{{.TAG}}" >/dev/null 2>&1 || gh release create "{{.TAG}}" --verify-tag --title "ai-memory {{.APP_VERSION}}" --notes "Пакеты не подписаны. Установка и подключение MCP-моста — README, раздел «Установка»." --generate-notes || gh release view "{{.TAG}}" >/dev/null
+      - gh release upload "{{.TAG}}" "{{.OUT}}"/* --clobber
+
   version:
     summary: Напечатать версию, которая попадёт в сборку
     silent: true

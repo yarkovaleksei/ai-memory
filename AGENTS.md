@@ -78,12 +78,14 @@ wails3 task bindings     # перегенерировать frontend/bindings п
 wails3 task build        # собрать бинарь в bin/
 wails3 task build:mcp    # собрать MCP-мост bin/ai-memory-mcp (без Wails и фронтенда)
 wails3 task package      # пакеты текущей ОС с окном и мостом в bin/; версия — из тега vX.Y.Z (wails3 task version)
+wails3 task release      # пакеты Linux для релиза в bin/release/<версия>/, только с чистого тега vX.Y.Z
+wails3 task release:publish  # приложить их к релизу GitHub через gh (только по просьбе владельца)
 wails3 task mcp:dev      # то же плюс команды, которые подключают мост к Claude Code и Codex на копии фикстур
 ```
 
 - Перед коммитом должна проходить `wails3 task check`.
 - `lint` сначала собирает фронтенд: пакету `main` для `go vet` нужен `frontend/dist` (`//go:embed`).
-- Пакеты: установщик Windows собирается и на Linux, нужен `makensis` (NSIS); универсальный `.app` и `.dmg` — только на macOS. Релиз собирает CI по тегу `vX.Y.Z` ([ADR-027](plan/decisions.md#adr-027-упаковка-без-подписи-deb-rpm-arch-dmg-и-nsis-с-mcp-мостом)).
+- Пакеты: установщик Windows собирается и на Linux, нужен `makensis` (NSIS); универсальный `.app` и `.dmg` — только на macOS. Пакеты macOS и Windows для релиза собирает CI по тегу `vX.Y.Z`, Linux — владелец локально ([ADR-027](plan/decisions.md#adr-027-упаковка-без-подписи-deb-rpm-arch-dmg-и-nsis-с-mcp-мостом), [ADR-029](plan/decisions.md#adr-029-linux-собирается-локально-macos-и-windows--в-ci)).
 - `frontend/bindings` коммитится. Поменял сервис в `internal/app` — перегенерируй привязки в том же коммите; CI проверяет, что они совпадают с Go-кодом.
 - TypeScript закреплён на 6.0: `typescript-eslint` пока не поддерживает 7.x. Обновлять вместе.
 - `Route` и прочее из роутера импортируй из `react-router-dom`, как сам react-admin: иначе в тестах получаются два экземпляра роутера.

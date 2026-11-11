@@ -1,6 +1,8 @@
-# Релиз по тегу vX.Y.Z (ADR-027): пакеты собираются каждый на своей системе и
-# прикладываются к релизу GitHub вместе с SHA256SUMS. Пакеты не подписаны —
-# как их открыть, написано в README, раздел «Установка».
+# Релиз по тегу vX.Y.Z (ADR-027, ADR-029): пакеты macOS и Windows собираются
+# каждый на своей системе и прикладываются к релизу GitHub вместе с
+# SHA256SUMS-<система>.txt. Пакеты Linux владелец собирает и прикладывает
+# локально: wails3 task release, wails3 task release:publish. Пакеты не
+# подписаны — как их открыть, написано в README, раздел «Установка».
 name: release
 
 on:
@@ -15,9 +17,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Linux — на 24.04: в ней есть GTK 4 и WebKitGTK 6.0, от которых
-        # зависят пакеты. macOS собирает универсальный .app (arm64 + amd64).
-        os: [ubuntu-24.04, macos-latest, windows-latest]
+        # macOS собирает универсальный .app (arm64 + amd64) в .dmg с подписью
+        # ad-hoc, Windows — установщик NSIS. Linux здесь нет: см. выше.
+        os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -45,12 +47,6 @@ jobs:
       - name: yarn через corepack
         run: corepack enable
 
-      - name: Системные библиотеки Wails (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
-
       - name: NSIS (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -73,16 +69,13 @@ jobs:
         run: |
           mkdir dist
           case "$RUNNER_OS" in
-            Linux)
-              mv bin/ai-memory.deb "dist/ai-memory_${VERSION}_amd64.deb"
-              mv bin/ai-memory.rpm "dist/ai-memory-${VERSION}.x86_64.rpm"
-              mv bin/ai-memory.pkg.tar.zst "dist/ai-memory-${VERSION}-x86_64.pkg.tar.zst"
-              ;;
             macOS)
               mv bin/*.dmg "dist/ai-memory-${VERSION}-macos-universal.dmg"
+              (cd dist && shasum -a 256 ai-memory* > SHA256SUMS-macos.txt)
               ;;
             Windows)
               mv bin/*-installer.exe "dist/ai-memory-${VERSION}-windows-amd64-setup.exe"
+              (cd dist && sha256sum ai-memory* > SHA256SUMS-windows.txt)
               ;;
           esac
           ls -la dist
@@ -105,16 +98,18 @@ jobs:
           merge-multiple: true
           path: dist
 
-      - name: Контрольные суммы
-        working-directory: dist
-        run: sha256sum * > SHA256SUMS
-
+      # Релиз создаёт тот, кто первый: этот job или локальная задача
+      # release:publish с пакетами Linux. Второй только докладывает свои файлы.
       - name: Релиз
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "ai-memory ${GITHUB_REF_NAME#v}" \
-            --notes "Пакеты не подписаны. Установка и подключение MCP-моста: https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/README.md#установка" \
-            --generate-notes
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --title "ai-memory ${GITHUB_REF_NAME#v}" \
+              --notes "Пакеты не подписаны. Установка и подключение MCP-моста — README, раздел «Установка»." \
+              --generate-notes ||
+            gh release view "$GITHUB_REF_NAME" >/dev/null
+          gh release upload "$GITHUB_REF_NAME" dist/* --clobber
