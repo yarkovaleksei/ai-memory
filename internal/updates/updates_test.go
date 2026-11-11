@@ -336,7 +336,7 @@ func TestUpdateFlow(t *testing.T) {
 			if got, err := os.ReadFile(file); err != nil || string(got) != string(body) {
 				t.Fatalf("файл пакета: %q %v", got, err)
 			}
-			if tt.command != "" && st.Command != tt.command+file {
+			if tt.command != "" && st.Command != tt.command+shellQuote(file) {
 				t.Errorf("команда: %q", st.Command)
 			}
 			if tt.command == "" && st.Command != "" {
