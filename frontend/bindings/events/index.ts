@@ -13,3 +13,8 @@ import "../github.com/wailsapp/wails/v3/internal/eventcreate.js";
  */
 export const IndexUpdated = "index:updated";
 
+/**
+ * Name of the custom event "update:status".
+ */
+export const UpdateStatus = "update:status";
+

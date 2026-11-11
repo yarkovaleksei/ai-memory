@@ -459,6 +459,33 @@ function settingsView(extra: string[]) {
   };
 }
 
+// Обновление: GitHub в тестах нет, статусы выдуманы.
+export const updateView = (over: Record<string, unknown> = {}) => ({
+  state: "idle",
+  current: "0.6.0",
+  format: "deb",
+  ...over,
+});
+
+export const updatesService = {
+  Status: vi.fn(() => Promise.resolve(updateView())),
+  Check: vi.fn(() =>
+    Promise.resolve(
+      updateView({
+        state: "available",
+        latest: "0.7.0",
+        notesUrl: "https://github.com/yarkovaleksei/ai-memory/releases/tag/v0.7.0",
+        package: "ai-memory_0.7.0_amd64.deb",
+        size: 12_300_000,
+        install: "command",
+      }),
+    ),
+  ),
+  Download: vi.fn(() => Promise.resolve()),
+  Cancel: vi.fn(() => Promise.resolve()),
+  Install: vi.fn(() => Promise.resolve()),
+};
+
 // LLM: CLI агентов в тестах нет, ответы выдуманы.
 export const llmService = {
   Agents: vi.fn((): Promise<string[]> => Promise.resolve(["claude", "codex"])),
@@ -483,6 +510,19 @@ export const llmService = {
 
 export const fakeBindings = () => ({
   SettingsService: settingsService,
+  UpdatesService: updatesService,
+  UpdateState: {
+    StateIdle: "idle",
+    StateUnsupported: "unsupported",
+    StateChecking: "checking",
+    StateCurrent: "current",
+    StateAvailable: "available",
+    StateDownloading: "downloading",
+    StateReady: "ready",
+    StateFailed: "failed",
+  },
+  UpdateInstall: { InstallCommand: "command", InstallOpen: "open", InstallRun: "run" },
+  UpdateStatus: "update:status",
   LLMService: llmService,
   Agent: { AgentClaude: "claude", AgentCodex: "codex" },
   PlansService: plansService,

@@ -22,6 +22,7 @@ import { SettingsService, type Settings, type SettingsView } from "../api/bindin
 import { call } from "../api/errors";
 import { useErrorText } from "../items/text";
 import { Rich } from "../layout/Rich";
+import { AppUpdates } from "./AppUpdates";
 
 const SETTINGS_KEY = ["settings"];
 
@@ -47,6 +48,8 @@ export const SettingsPage = () => {
           {!data && !error && <Typography>{translate("aim.settings.loading")}</Typography>}
           {/* key: после сохранения форма начинается с того, что записано в файл */}
           {data && <SettingsForm key={JSON.stringify(data.settings)} view={data} />}
+          <Divider />
+          <AppUpdates />
         </Stack>
       </CardContent>
     </Card>

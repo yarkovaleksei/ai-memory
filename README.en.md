@@ -89,7 +89,7 @@ xattr -dr com.apple.quarantine /Applications/ai-memory.app
 
 **Windows.** Run the installer. SmartScreen shows "Windows protected your PC": click "More info", then "Run anyway". The installer puts ai-memory in `%LOCALAPPDATA%\Programs\ai-memory` for the current user and needs no administrator rights. If WebView2 is missing, the installer downloads it.
 
-**Updating** means installing the new package over the old one. The index, backups and settings live in the user's data and settings directories (see Privacy), and packages never touch them. They also stay after uninstalling; delete them by hand if you no longer need them.
+**Updating** works from the app: Settings → "Обновление ai-memory" (Update) → "Проверить обновления" (Check for updates). ai-memory finds the latest release on GitHub, downloads the package of its own format and checks its SHA-256 against `SHA256SUMS-<os>.txt` from the same release. The system installs it: on Linux the app opens the folder with the package and shows the command (`sudo apt install …`, `sudo dnf install …`, `sudo pacman -U …`), on macOS it opens the `.dmg`, on Windows it starts the installer and quits. Builds from source and `wails3 task dev` update by hand. You can also skip the app and install the new package over the old one. The index, backups and settings live in the user's data and settings directories (see Privacy), and packages never touch them. They also stay after uninstalling; delete them by hand if you no longer need them.
 
 **From source:** `wails3 task package` builds the packages for the current system into `bin/`. Requirements: the commands section of [AGENTS.md](AGENTS.md). Release packages for Linux are built locally; macOS and Windows packages are built by GitHub Actions on a tag ([ADR-029](plan/decisions.md#adr-029-linux-собирается-локально-macos-и-windows--в-ci)).
 
@@ -148,7 +148,7 @@ Go and Wails v3 for the core and the window; React, TypeScript, react-admin 5, M
 
 ## Privacy
 
-- The app opens no network port; memory never leaves your machine.
+- The app opens no network port; memory never leaves your machine. It goes online only when you press "Check for updates", and only to GitHub: to learn about the release and download the package.
 - ai-memory keeps its own data (index and backups) in the user data directory: `~/.local/share/ai-memory/` on Linux, `~/Library/Application Support/ai-memory/` on macOS, `%LocalAppData%\ai-memory\` on Windows. It can be deleted at any time and is rebuilt from the agents' files.
 - Tests run on fixtures only; no real memory ever goes into the repository.
 

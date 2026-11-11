@@ -34,6 +34,23 @@ contents:
     packager: deb
     file_info:
       mode: 0644
+  # Метка формата: deb, rpm и пакет Arch ставят один и тот же бинарь, и по
+  # ней окно знает, какой пакет скачивать при обновлении (ADR-031).
+  - src: "./build/linux/nfpm/package-format/deb"
+    dst: "/usr/share/ai-memory/package-format"
+    packager: deb
+    file_info:
+      mode: 0644
+  - src: "./build/linux/nfpm/package-format/rpm"
+    dst: "/usr/share/ai-memory/package-format"
+    packager: rpm
+    file_info:
+      mode: 0644
+  - src: "./build/linux/nfpm/package-format/arch"
+    dst: "/usr/share/ai-memory/package-format"
+    packager: archlinux
+    file_info:
+      mode: 0644
 
 # Default dependencies for the GTK4 + WebKitGTK 6.0 stack (Ubuntu 24.04+ / Debian 13+)
 depends:

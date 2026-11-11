@@ -9,16 +9,25 @@ import (
 	"embed"
 	"log"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/yarkovaleksei/ai-memory/internal/app"
 	"github.com/yarkovaleksei/ai-memory/internal/config"
 	"github.com/yarkovaleksei/ai-memory/internal/library"
+	"github.com/yarkovaleksei/ai-memory/internal/updates"
 )
 
 // version подменяется при сборке релиза через -ldflags "-X main.version=…".
 var version = "0.0.1-dev"
+
+// packageFormat — формат пакета, в котором поставляется этот бинарь (dmg,
+// nsis); вшивается задачами упаковки (ADR-031). Пакеты Linux вместо этого
+// ставят метку (updates.LinuxMarker). Пусто — обновление вручную.
+var packageFormat = ""
 
 // Собранный фронтенд встраивается в бинарь. Каталог появляется после
 // `wails3 task common:build:frontend`, поэтому go vet и go test для этого
@@ -52,6 +61,13 @@ func main() {
 		log.Fatalf("не удалось открыть индекс: %v", err)
 	}
 
+	exe, _ := os.Executable()
+	if real, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = real
+	}
+	format := updates.DetectFormat(packageFormat, runtime.GOOS, exe, os.ReadFile)
+	upd := app.NewUpdatesService(version, format, filepath.Join(filepath.FromSlash(cfg.DataDir), "updates"), slog.Default())
+
 	plans, history := app.NewEditing(context.Background(), lib, rt, slog.Default())
 
 	wailsApp := application.New(application.Options{
@@ -65,6 +81,7 @@ func main() {
 			application.NewService(history),
 			application.NewService(app.NewSettingsService(env, base, rt, lib, slog.Default())),
 			application.NewService(app.NewLLMService(lib, rt, slog.Default())),
+			application.NewService(upd),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

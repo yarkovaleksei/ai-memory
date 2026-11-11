@@ -7,13 +7,15 @@ import * as LLMService from "./llmservice.js";
 import * as LibraryService from "./libraryservice.js";
 import * as PlansService from "./plansservice.js";
 import * as SettingsService from "./settingsservice.js";
+import * as UpdatesService from "./updatesservice.js";
 export {
     HistoryService,
     InfoService,
     LLMService,
     LibraryService,
     PlansService,
-    SettingsService
+    SettingsService,
+    UpdatesService
 };
 
 export type {

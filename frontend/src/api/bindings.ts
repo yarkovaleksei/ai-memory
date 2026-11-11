@@ -7,6 +7,7 @@ export {
   LLMService,
   PlansService,
   SettingsService,
+  UpdatesService,
 } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/app";
 export type {
   AppInfo,
@@ -50,5 +51,10 @@ export type { Consolidation } from "../../bindings/github.com/yarkovaleksei/ai-m
 export type { MergeDraft } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/llm";
 export type { Settings } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/config";
 export type { Stats } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/library";
-export { IndexUpdated } from "../../bindings/events";
+export {
+  Install as UpdateInstall,
+  State as UpdateState,
+} from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/updates";
+export type { Status as UpdateView } from "../../bindings/github.com/yarkovaleksei/ai-memory/internal/updates";
+export { IndexUpdated, UpdateStatus } from "../../bindings/events";
 export { Browser, Events } from "@wailsio/runtime";

@@ -8,11 +8,15 @@ import type { Events } from "@wailsio/runtime";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import type * as library$0 from "../../../../yarkovaleksei/ai-memory/internal/library/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import type * as updates$0 from "../../../../yarkovaleksei/ai-memory/internal/updates/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "index:updated": library$0.Stats;
+            "update:status": updates$0.Status;
         }
     }
 }
