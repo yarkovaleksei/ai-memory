@@ -30,7 +30,11 @@ for name in "ai-memory_${ver}_amd64.deb" "ai-memory-${ver}.x86_64.rpm" "ai-memor
   want["$name"]=""
 done
 add_sums() { # содержимое SHA256SUMS → эталон
-  while read -r sum name; do [[ -n "$name" ]] && want["$name"]="$sum"; done
+  # sha256sum из Git Bash на Windows пишет имя в двоичном режиме: «*имя».
+  while read -r sum name; do
+    name="${name#\*}" name="${name%$'\r'}"
+    [[ -n "$name" ]] && want["$name"]="$sum"
+  done
   return 0
 }
 # Linux — по локальным файлам, из которых собран релиз.
