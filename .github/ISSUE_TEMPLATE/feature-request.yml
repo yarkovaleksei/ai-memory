@@ -1,0 +1,90 @@
+name: Предложить улучшение
+description: Новая возможность или улучшение существующей функции ai-memory.
+title: "[Предложение] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую задачу хочется решить
+      description: Опишите, чего вам не хватает или что сейчас неудобно.
+      placeholder: >-
+        Например, Codex и Claude Code держат одинаковые факты о проекте, и
+        каждый раз приходится сверять их вручную.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Предлагаемое улучшение
+      description: Как это должно работать и чем поможет в вашей задаче?
+      placeholder: >-
+        Например, хочу видеть пары похожих записей двух агентов и объединять
+        их одной кнопкой.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: К чему относится
+      multiple: true
+      options:
+        - Просмотр, поиск и фильтры
+        - Правка, история и откат
+        - Перенос, объединение и противоречия
+        - Инструкции и навыки
+        - MCP-мост
+        - Поддержка другого агента или формата памяти
+        - Установка, обновление и пакеты
+        - Сайт и документация
+        - Другое
+
+  - type: dropdown
+    id: agents
+    attributes:
+      label: Для какого агента
+      description: Для общей идеи оставьте поле пустым.
+      multiple: true
+      options:
+        - Claude Code
+        - Codex
+        - Другой агент
+
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Для каких ОС актуально
+      description: >-
+        Если предложение связано с конкретной ОС, выберите её.
+        Можно отметить несколько. Для общей идеи оставьте поле пустым.
+      multiple: true
+      options:
+        - Linux
+        - macOS
+        - Windows
+
+  - type: input
+    id: app-version
+    attributes:
+      label: Версия ai-memory
+      description: >-
+        Если предлагаете изменить существующую функцию, укажите версию со
+        страницы «О программе» или из имени пакета. Для исходников — commit или тег.
+      placeholder: "Например: 0.6.0"
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Как решаете задачу сейчас
+      description: Опишите текущий способ или другие варианты решения, если они есть.
+      placeholder: Что приходится делать вручную, в файлах памяти или в другой программе?
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Примеры, скриншоты и ссылки
+      description: >-
+        Можно приложить набросок интерфейса, пример из другой программы или
+        ссылку. Примеры памяти — только выдуманные, без своих данных.
+        Изображения и файлы перетащите в это поле.

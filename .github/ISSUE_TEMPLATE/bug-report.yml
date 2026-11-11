@@ -1,0 +1,185 @@
+name: Сообщить об ошибке
+description: Ошибка в окне ai-memory, правке или переносе памяти, MCP-мосте, обновлении или установке.
+title: "[Ошибка] "
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        **Не вставляйте сюда настоящую память агентов.** В фактах Claude Code,
+        заметках и сводках Codex, `CLAUDE.md` и `AGENTS.md` бывают имена,
+        адреса, внутренние ссылки и пути с именем пользователя. Перескажите
+        запись своими словами или замените данные выдуманными
+        (`/home/me/projects/demo`). Никогда не прикладывайте
+        `~/.claude*/.credentials.json`, `~/.codex/auth.json`, файлы сессий,
+        `index.db` и каталог бэкапов ai-memory.
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Операционная система
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Другая
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: Версия ОС
+      description: Для Linux укажите название и версию дистрибутива.
+      placeholder: "Например: Ubuntu 24.04, Fedora 41, macOS 15.4, Windows 11 24H2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: Архитектура системы
+      options:
+        - x64 (Intel / AMD)
+        - arm64 (Apple Silicon / ARM)
+        - Другая
+        - Не знаю
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: Версия ai-memory
+      description: >-
+        Версия на странице «О программе» или в имени скачанного пакета:
+        ai-memory_ВЕРСИЯ_amd64.deb, ai-memory-ВЕРСИЯ-macos-universal.dmg,
+        ai-memory-ВЕРСИЯ-windows-amd64-setup.exe. Для MCP-моста —
+        вывод `ai-memory-mcp -version`. Для сборки из исходников — commit или тег.
+      placeholder: "Например: 0.6.0 или commit исходников"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: launch-method
+    attributes:
+      label: Как установлено приложение
+      options:
+        - Пакет deb (Ubuntu, Debian)
+        - Пакет rpm (Fedora)
+        - Пакет Arch Linux
+        - .dmg (macOS)
+        - Установщик Windows
+        - Собственная сборка из исходников (wails3 task build / package)
+        - Режим разработки (wails3 task dev)
+        - Другое
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Где ошибка
+      multiple: true
+      options:
+        - Окно не открывается или падает
+        - Просмотр, поиск и фильтры
+        - Правка, создание или удаление записи
+        - История и откат
+        - Перенос между агентами
+        - Объединение записей и поиск противоречий
+        - Инструкции (CLAUDE.md, AGENTS.md, правила) и навыки
+        - MCP-мост ai-memory-mcp
+        - Настройки
+        - Обновление из приложения
+        - Установка или удаление пакета
+        - Другое
+    validations:
+      required: true
+
+  - type: dropdown
+    id: agents
+    attributes:
+      label: Чья память затронута
+      multiple: true
+      options:
+        - Claude Code
+        - Codex
+        - Не относится к памяти
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+      description: Опишите действия по порядку, начиная с запуска приложения или агента.
+      placeholder: |
+        1. Открываю проект demo и выбираю факт Claude «Как выпускается релиз»…
+        2. Нажимаю «Перенести» → «В Codex»…
+        3. Получаю ошибку…
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемый результат
+      placeholder: Что должно было произойти?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Фактический результат
+      description: Если появилось сообщение об ошибке, приведите его точный текст.
+      placeholder: Что произошло вместо ожидаемого результата?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Как часто повторяется ошибка
+      options:
+        - При каждом повторении этих действий
+        - Иногда
+        - Случилось один раз, повторить не удалось
+        - Пока не проверял повторно
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Дополнительные условия
+      description: Заполните только то, что относится к вашей ошибке.
+      placeholder: |
+        Агенты: версии `claude --version` и `codex --version`; сколько профилей Claude и задан ли CLAUDE_CONFIG_DIR или CODEX_HOME.
+        Codex: поколение памяти v1 или v2 (страница «Настройки»).
+        Переменные AI_MEMORY_* или config.toml ai-memory, если меняли.
+        Запись в память: установлен ли git (без него правка не работает).
+        MCP-мост: в каком агенте и какой командой подключён, какие флаги (-agent, -project, -global, -all-projects).
+        Linux: рабочий стол и Wayland / X11; открывается ли окно из меню и из терминала.
+        Windows: установлен ли WebView2, если окно не открывается.
+        Сборка из исходников: команда и версии Go, wails3, Node.js.
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Журнал и диагностика
+      description: >-
+        Отдельного файла журнала у ai-memory нет: он пишет в терминал.
+        Запустите окно из терминала (`ai-memory` в Linux,
+        `/Applications/ai-memory.app/Contents/MacOS/ai-memory` в macOS),
+        повторите ошибку и вставьте вывод. Для MCP-моста — его сообщения из
+        журнала агента. Если правка прошла не так, приложите код операции и
+        diff со страницы «История» — с выдуманными данными вместо своих.
+        Перед отправкой уберите токены, личные пути и содержимое памяти.
+      placeholder: Вывод терминала, код ошибки или фрагмент журнала.
+      render: text
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Скриншоты и файлы
+      description: >-
+        Перетащите сюда скриншоты или короткую запись экрана, если они
+        помогают показать ошибку. Скройте записи памяти, пути с именем
+        пользователя и данные аккаунтов.
