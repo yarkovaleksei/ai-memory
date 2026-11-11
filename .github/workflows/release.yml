@@ -98,8 +98,10 @@ jobs:
           merge-multiple: true
           path: dist
 
-      # Релиз создаёт тот, кто первый: этот job или локальная задача
-      # release:publish с пакетами Linux. Второй только докладывает свои файлы.
+      # Черновик релиза создаёт тот, кто первый: этот job или локальная
+      # задача release:publish с пакетами Linux; второй только докладывает
+      # свои файлы. Публикует черновик владелец после сверки вложений:
+      # wails3 task release:promote (ADR-030). Без --clobber.
       - name: Релиз
         env:
           GH_TOKEN: ${{ github.token }}
@@ -107,9 +109,9 @@ jobs:
         run: |
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 ||
             gh release create "$GITHUB_REF_NAME" \
+              --draft \
               --verify-tag \
               --title "ai-memory ${GITHUB_REF_NAME#v}" \
-              --notes "Пакеты не подписаны. Установка и подключение MCP-моста — README, раздел «Установка»." \
               --generate-notes ||
             gh release view "$GITHUB_REF_NAME" >/dev/null
-          gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          gh release upload "$GITHUB_REF_NAME" dist/*

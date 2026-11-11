@@ -70,9 +70,11 @@ tasks:
       - ls -la "{{.OUT}}"
 
   release:publish:
-    summary: Приложить пакеты Linux из bin/release/<версия>/ к релизу GitHub vX.Y.Z
-    # Тег должен уже быть на GitHub. Релиз создаёт тот, кто первый: эта задача
-    # или CI; второй только докладывает свои файлы.
+    summary: Приложить пакеты Linux к черновику релиза GitHub vX.Y.Z (ADR-030)
+    # Тег должен уже быть на GitHub. Черновик создаёт тот, кто первый: эта
+    # задача или CI; второй только докладывает свои файлы. Загрузка без
+    # --clobber: уже выложенный файл не перезаписывается. NOTES — файл
+    # описания релиза; без него остаётся описание, которое уже есть.
     vars:
       OUT: "{{.BIN_DIR}}/release/{{.APP_VERSION}}"
       TAG: "v{{.APP_VERSION}}"
@@ -81,9 +83,34 @@ tasks:
         msg: "Нужен GitHub CLI (gh) с входом в аккаунт: gh auth login"
       - sh: '[ -f "{{.OUT}}/SHA256SUMS-linux.txt" ]'
         msg: "Нет пакетов {{.OUT}}: сначала wails3 task release"
+      - sh: '[ -z "{{.NOTES}}" ] || [ -f "{{.NOTES}}" ]'
+        msg: "Нет файла описания {{.NOTES}}"
     cmds:
-      - gh release view "{{.TAG}}" >/dev/null 2>&1 || gh release create "{{.TAG}}" --verify-tag --title "ai-memory {{.APP_VERSION}}" --notes "Пакеты не подписаны. Установка и подключение MCP-моста — README, раздел «Установка»." --generate-notes || gh release view "{{.TAG}}" >/dev/null
-      - gh release upload "{{.TAG}}" "{{.OUT}}"/* --clobber
+      - gh release view "{{.TAG}}" >/dev/null 2>&1 || gh release create "{{.TAG}}" --draft --verify-tag --title "ai-memory {{.APP_VERSION}}" {{if .NOTES}}--notes-file "{{.NOTES}}"{{else}}--generate-notes{{end}} || gh release view "{{.TAG}}" >/dev/null
+      - '{{if .NOTES}}gh release edit "{{.TAG}}" --notes-file "{{.NOTES}}"{{else}}true{{end}}'
+      - gh release upload "{{.TAG}}" "{{.OUT}}"/*
+
+  release:verify:
+    summary: Сверить вложения релиза vX.Y.Z по digest из API GitHub (ADR-030)
+    cmds:
+      - bash scripts/release-verify.sh "{{.APP_VERSION}}"
+
+  release:promote:
+    summary: Опубликовать черновик vX.Y.Z как latest — только после полной сверки вложений
+    cmds:
+      - bash scripts/release-verify.sh "{{.APP_VERSION}}"
+      - gh release edit "v{{.APP_VERSION}}" --draft=false --latest
+      - bash scripts/release-verify.sh "{{.APP_VERSION}}"
+
+  smoke:mcp:
+    summary: Проверить собранный MCP-мост по stdio на копии фикстур (BIN — путь, по умолчанию bin/ai-memory-mcp)
+    cmds:
+      - bash scripts/smoke-mcp.sh "{{.BIN | default "bin/ai-memory-mcp"}}"
+
+  smoke:desktop:
+    summary: Запустить окно как из меню, через пользовательский systemd, на копии фикстур (BIN — по умолчанию /usr/bin/ai-memory)
+    cmds:
+      - bash scripts/smoke-desktop.sh "{{.BIN | default "/usr/bin/ai-memory"}}" "{{.SECONDS | default "8"}}"
 
   version:
     summary: Напечатать версию, которая попадёт в сборку

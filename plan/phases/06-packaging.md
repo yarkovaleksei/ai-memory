@@ -13,6 +13,7 @@
 - [x] Записать выбранные форматы и решение о подписи в ADR: [ADR-027](../decisions.md#adr-027-упаковка-без-подписи-deb-rpm-arch-dmg-и-nsis-с-mcp-мостом).
 - [x] Сборка пакетов в CI на GitHub Actions по тегу версии, артефакты — в релиз GitHub: `.github/workflows/release.yml`. В CI — только macOS и Windows; Linux владелец собирает и выкладывает локально: `wails3 task release` и `release:publish` ([ADR-029](../decisions.md#adr-029-linux-собирается-локально-macos-и-windows--в-ci)).
 - [x] Бинарь MCP-моста ставится вместе с приложением и находится по известному пути на каждой системе: `/usr/bin/ai-memory-mcp`, `/Applications/ai-memory.app/Contents/MacOS/ai-memory-mcp`, `%LOCALAPPDATA%\Programs\ai-memory\ai-memory-mcp.exe`.
+- [x] Навыки сборки и выпуска `ai-memory-build` и `ai-memory-release` по образцу проектов владельца: черновик релиза, сверка вложений по API, проверки `smoke:mcp` и `smoke:desktop` ([ADR-030](../decisions.md#adr-030-релиз-выкладывается-черновиком-и-публикуется-после-сверки-по-api)).
 - [x] Версия приложения видна в интерфейсе и в `ai-memory-mcp --version`. Берётся из тега `vX.Y.Z` (`wails3 task version`) и вшивается в оба бинаря.
 
 ### Ручная приёмка
