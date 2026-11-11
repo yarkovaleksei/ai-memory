@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ai-memory — память Claude Code и Codex в одном окне</title>
+  <meta name="description" content="Десктоп-приложение для памяти Claude Code и Codex: просмотр, правка с откатом, перенос между агентами и MCP-мост. Linux, macOS и Windows.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#0d1847">
+  <link rel="canonical" href="https://yarkovaleksei.github.io/ai-memory/">
+  <link rel="icon" type="image/png" href="images/favicon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://yarkovaleksei.github.io/ai-memory/">
+  <meta property="og:title" content="ai-memory — память Claude Code и Codex в одном окне">
+  <meta property="og:description" content="Смотрите, правьте и переносите память агентов между Claude Code и Codex. Каждая правка — через diff, бэкап и откат.">
+  <meta property="og:image" content="https://yarkovaleksei.github.io/ai-memory/images/social.jpg">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="640">
+  <meta property="og:image:alt" content="Иконка ai-memory и подпись: память Claude Code и Codex в одном окне">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    /* Палитра — из иконки приложения: тёмно-синий фон, оранжевый ящик —
+       Claude Code, синий — Codex. */
+    :root {
+      --navy: #0d1847;
+      --orange: #f2711c;
+      --orange-soft: #fff1e6;
+      --blue: #4c63d9;
+      --blue-soft: #edf0ff;
+      --cream: #f6f1e3;
+      --body: #f7f8fc;
+      --surface: #ffffff;
+      --text: #141a33;
+      --muted: #59607a;
+      --line: #dfe3f0;
+      --code: #eef1f8;
+      --shadow: 0 18px 50px -20px rgba(13, 24, 71, 0.35);
+      --gradient: linear-gradient(100deg, var(--orange), #c35bb0 50%, var(--blue));
+      --radius: 14px;
+      --wrap: 1120px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --orange: #f7863a;
+        --orange-soft: #33200f;
+        --blue: #7d90f0;
+        --blue-soft: #18204a;
+        --body: #070c22;
+        --surface: #0f1736;
+        --text: #e8ebf7;
+        --muted: #a2a9c6;
+        --line: #232d58;
+        --code: #141d42;
+        --shadow: 0 18px 50px -20px rgba(0, 0, 0, 0.7);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    body {
+      margin: 0;
+      background: var(--body);
+      color: var(--text);
+      font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Ubuntu, Roboto, "Noto Sans", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--blue); }
+    code, pre { font-family: ui-monospace, "SFMono-Regular", "Ubuntu Mono", Menlo, Consolas, monospace; }
+    code { background: var(--code); padding: 0.1em 0.35em; border-radius: 5px; font-size: 0.9em; }
+    pre {
+      background: var(--code); border: 1px solid var(--line); border-radius: 10px;
+      padding: 14px 16px; overflow-x: auto; font-size: 14px; line-height: 1.5; margin: 0;
+    }
+    pre code { background: none; padding: 0; font-size: inherit; }
+    .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px; }
+
+    /* Шапка */
+    header.top {
+      position: sticky; top: 0; z-index: 10;
+      background: color-mix(in srgb, var(--body) 85%, transparent);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+    header.top .wrap { display: flex; align-items: center; gap: 24px; height: 64px; }
+    .brand { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-weight: 700; font-size: 19px; }
+    .brand img { width: 34px; height: 34px; }
+    nav.links { display: flex; gap: 22px; margin-left: auto; }
+    nav.links a { color: var(--muted); text-decoration: none; font-size: 15px; }
+    nav.links a:hover { color: var(--text); }
+    @media (max-width: 760px) { nav.links a:not(.gh) { display: none; } }
+
+    /* Первый экран */
+    .hero { padding: 72px 0 40px; text-align: center; }
+    .hero h1 { font-size: clamp(34px, 5.4vw, 58px); line-height: 1.1; margin: 0 auto 20px; max-width: 900px; letter-spacing: -0.02em; }
+    .hero h1 .grad { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .lead { font-size: clamp(18px, 2vw, 21px); color: var(--muted); max-width: 760px; margin: 0 auto 32px; }
+    .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 13px 22px; border-radius: 999px; font-weight: 600; font-size: 16px;
+      text-decoration: none; border: 1px solid var(--line); color: var(--text); background: var(--surface);
+    }
+    .btn.primary { background: var(--navy); color: var(--cream); border-color: transparent; }
+    @media (prefers-color-scheme: dark) { .btn.primary { background: var(--cream); color: var(--navy); } }
+    .btn:hover { transform: translateY(-1px); }
+    .version-line { color: var(--muted); font-size: 14px; margin-top: 14px; min-height: 1.6em; }
+    .shot {
+      margin: 48px auto 0; max-width: 1080px; border-radius: var(--radius); overflow: hidden;
+      border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--surface);
+    }
+    .shot img { display: block; width: 100%; height: auto; }
+    .caption { color: var(--muted); font-size: 14px; margin-top: 12px; }
+
+    /* Агенты */
+    .agents { display: flex; justify-content: center; gap: 10px; margin: 0 0 22px; flex-wrap: wrap; }
+    /* Имя агента не переносится: «Claude Code» в узкой колонке таблицы
+       иначе разваливается на две строки. */
+    .chip { display: inline-block; white-space: nowrap; font-size: 14px; font-weight: 600; padding: 4px 12px; border-radius: 999px; border: 1px solid; }
+    .chip.claude { color: var(--orange); background: var(--orange-soft); border-color: color-mix(in srgb, var(--orange) 40%, transparent); }
+    .chip.codex { color: var(--blue); background: var(--blue-soft); border-color: color-mix(in srgb, var(--blue) 40%, transparent); }
+
+    /* Секции */
+    section { padding: 72px 0; }
+    section.alt { background: var(--surface); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    h2 { font-size: clamp(28px, 3.6vw, 38px); line-height: 1.2; margin: 0 0 14px; letter-spacing: -0.01em; }
+    .sub { color: var(--muted); max-width: 720px; margin: 0 0 40px; font-size: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+    @media (max-width: 960px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 620px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+    .card {
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px;
+    }
+    section.alt .card { background: var(--body); }
+    .card h3 { margin: 0 0 8px; font-size: 18px; }
+    .card p { margin: 0; color: var(--muted); font-size: 16px; }
+    .icon {
+      width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center;
+      margin-bottom: 14px; font-size: 20px; background: var(--blue-soft); color: var(--blue);
+    }
+    .icon.o { background: var(--orange-soft); color: var(--orange); }
+
+    /* Два столбца: текст и картинка */
+    .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 48px; align-items: center; }
+    @media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); } }
+    .split .shot { margin: 0; }
+    .split .shot img { border-radius: 8px; }
+    ul.ticks { list-style: none; padding: 0; margin: 22px 0 0; }
+    ul.ticks li { padding-left: 28px; position: relative; margin: 10px 0; color: var(--muted); }
+    ul.ticks li::before { content: "✓"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+    ul.ticks b { color: var(--text); font-weight: 600; }
+
+    /* Таблица: где память */
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 14px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+    section.alt .table-wrap { background: var(--body); }
+
+    /* Скачать */
+    .platforms { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+    @media (max-width: 900px) { .platforms { grid-template-columns: minmax(0, 1fr); } }
+    .platform h3 { margin: 0 0 4px; font-size: 20px; }
+    .platform .req { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+    .platform .dl { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .platform .dl a {
+      display: flex; justify-content: space-between; gap: 10px; align-items: center;
+      padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line);
+      text-decoration: none; color: var(--text); font-weight: 600; font-size: 15px; background: var(--body);
+    }
+    .platform .dl a span { color: var(--muted); font-weight: 400; font-size: 13px; text-align: right; }
+    .platform .dl a:hover { border-color: var(--blue); }
+    .platform.current { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+    .platform p.note { color: var(--muted); font-size: 14px; margin: 12px 0 0; }
+    .platform pre { font-size: 13px; }
+    .honest {
+      margin-top: 26px; padding: 16px 20px; border-radius: var(--radius);
+      background: var(--orange-soft); border: 1px solid color-mix(in srgb, var(--orange) 35%, transparent);
+      font-size: 15px;
+    }
+
+    footer { padding: 40px 0 56px; color: var(--muted); font-size: 14px; }
+    footer .wrap { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; }
+    footer a { color: var(--muted); }
+    footer .spacer { flex: 1; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="#"><img src="images/icon.png" alt="" width="34" height="34">ai-memory</a>
+      <nav class="links" aria-label="Разделы">
+        <a href="#features">Возможности</a>
+        <a href="#mcp">MCP-мост</a>
+        <a href="#safety">Безопасность</a>
+        <a href="#download">Скачать</a>
+        <a class="gh" href="https://github.com/yarkovaleksei/ai-memory">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div class="wrap">
+        <div class="agents"><span class="chip claude">Claude Code</span><span class="chip codex">Codex</span></div>
+        <h1>Память ваших агентов — <span class="grad">в одном окне</span></h1>
+        <p class="lead">ai-memory показывает, что Claude Code и Codex запомнили о ваших проектах, даёт поправить это с предпросмотром и откатом и перенести знание от одного агента к другому.</p>
+        <div class="actions">
+          <a class="btn primary" id="hero-download" href="#download">Скачать</a>
+          <a class="btn" href="https://github.com/yarkovaleksei/ai-memory">Исходники на GitHub</a>
+        </div>
+        <div class="version-line" id="hero-version"></div>
+        <figure class="shot" style="margin-left:auto;margin-right:auto">
+          <img src="images/screen-main.png" width="1440" height="900" alt="Окно ai-memory: дерево проектов, список записей памяти Claude Code и Codex с фильтрами и карточка выбранного факта">
+        </figure>
+        <p class="caption">Скриншоты — на демо-данных из тестов ai-memory.</p>
+      </div>
+    </div>
+
+    <section class="alt" id="why">
+      <div class="wrap">
+        <h2>Два агента — две памяти</h2>
+        <p class="sub">Если чередовать Claude Code и Codex, у каждого копится своя память, а другой её не видит. Вывод, сделанный в одном, приходится повторять в другом, а навести порядок можно только руками в файлах разных форматов. ai-memory не заводит ещё одну память — он работает прямо с родными файлами агентов.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Агент</th><th>Где лежит память</th><th>Как ai-memory пишет</th></tr></thead>
+            <tbody>
+              <tr><td><span class="chip claude">Claude Code</span></td><td><code>~/.claude*/projects/&lt;проект&gt;/memory/*.md</code> и индекс <code>MEMORY.md</code></td><td>напрямую: файл факта и строка в индексе</td></tr>
+              <tr><td><span class="chip codex">Codex</span></td><td><code>~/.codex/memories_v2/</code> — сводки, которые генерирует сам Codex</td><td>только заметками в <code>extensions/ad_hoc/notes/</code>; Codex сам вливает их в память</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="wrap">
+        <h2>Что умеет</h2>
+        <p class="sub">Всё, что агенты знают о проекте, — рядом: факты памяти, инструкции и навыки обоих агентов.</p>
+        <div class="grid">
+          <div class="card"><div class="icon">⌕</div><h3>Просмотр и поиск</h3><p>Память обоих агентов по проектам, фильтры по агенту, разделу и типу, полнотекстовый поиск.</p></div>
+          <div class="card"><div class="icon o">✎</div><h3>Правка с откатом</h3><p>Создание, правка и удаление фактов Claude, заметки в Codex. Перед записью — diff, после — бэкап и история.</p></div>
+          <div class="card"><div class="icon">⇄</div><h3>Перенос между агентами</h3><p>Факт Claude становится заметкой Codex и наоборот; пара «источник — копия» видна в обеих записях.</p></div>
+          <div class="card"><div class="icon o">⧉</div><h3>Дубли и противоречия</h3><p>Отмеченные записи объединяются в одну, а противоречия между ними находит модель через <code>claude -p</code> или <code>codex exec</code>.</p></div>
+          <div class="card"><div class="icon">§</div><h3>Инструкции и навыки</h3><p><code>CLAUDE.md</code>, <code>AGENTS.md</code>, правила и навыки рядом с памятью. Правило переносится разделом, навык — копией или симлинком.</p></div>
+          <div class="card"><div class="icon o">⚡</div><h3>MCP-мост</h3><p>Агент во время работы сам находит, что о проекте знает другой агент, — без копирования руками.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="alt" id="transfer">
+      <div class="wrap split">
+        <div>
+          <h2>Знание переходит к другому агенту</h2>
+          <p class="sub" style="margin-bottom:0">Выберите запись и нажмите «Перенести». ai-memory запишет её в формате другого агента и покажет, что именно изменится.</p>
+          <ul class="ticks">
+            <li><b>Claude → Codex:</b> факт становится ad-hoc-заметкой, которую Codex сам вольёт в память при консолидации.</li>
+            <li><b>Codex → Claude:</b> раздел сводки становится фактом с frontmatter и строкой в <code>MEMORY.md</code>.</li>
+            <li><b>Без потерь:</b> источник остаётся на месте, если не попросить убрать его, а любой перенос откатывается из истории.</li>
+          </ul>
+        </div>
+        <figure class="shot">
+          <img src="images/screen-transfer.png" width="900" height="692" alt="Диалог переноса факта «Как выпускается релиз» из Claude Code в Codex с текстом будущей заметки" loading="lazy">
+        </figure>
+      </div>
+    </section>
+
+    <section id="mcp">
+      <div class="wrap split">
+        <div>
+          <h2>MCP-мост: агент спрашивает другого агента</h2>
+          <p class="sub" style="margin-bottom:0"><code>ai-memory-mcp</code> ставится вместе с окном. Агент запускает его как MCP-сервер и во время работы ищет, что о текущем проекте запомнил другой агент.</p>
+          <ul class="ticks">
+            <li><b>Только чтение:</b> инструменты <code>list_projects</code>, <code>search_memory</code> и <code>get_memory</code> ничего не пишут.</li>
+            <li><b>Только текущий проект:</b> остальное открывается флагами <code>-global</code> и <code>-all-projects</code>, а не аргументами агента.</li>
+            <li><b>Без окна:</b> мост не зависит от запущенного ai-memory и строит индекс в памяти процесса.</li>
+          </ul>
+        </div>
+        <div>
+          <p style="margin:0 0 8px;color:var(--muted);font-size:15px">Claude Code, для всех проектов:</p>
+          <pre><code>claude mcp add --scope user ai-memory -- /usr/bin/ai-memory-mcp -agent claude</code></pre>
+          <p style="margin:18px 0 8px;color:var(--muted);font-size:15px">Codex:</p>
+          <pre><code>codex mcp add ai-memory -- /usr/bin/ai-memory-mcp -agent codex</code></pre>
+          <p style="margin:18px 0 0;color:var(--muted);font-size:14px">Путь — для Linux. На macOS мост лежит в <code>/Applications/ai-memory.app/Contents/MacOS/ai-memory-mcp</code>, на Windows — в <code>%LOCALAPPDATA%\Programs\ai-memory\ai-memory-mcp.exe</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="alt" id="safety">
+      <div class="wrap">
+        <h2>Память остаётся у вас</h2>
+        <p class="sub">ai-memory работает рядом с настоящей памятью агентов, поэтому каждая запись идёт одним осторожным путём.</p>
+        <div class="grid">
+          <div class="card"><div class="icon">⌂</div><h3>Локально</h3><p>Ни сервера, ни сетевого порта. Само приложение ходит в сеть только по кнопке «Проверить обновления» — на GitHub; черновики от модели идут через установленный CLI агента.</p></div>
+          <div class="card"><div class="icon o">±</div><h3>Сначала diff</h3><p>Любая правка, перенос или объединение сначала показывает план и diff каждого файла. Без подтверждения ничего не пишется.</p></div>
+          <div class="card"><div class="icon">↺</div><h3>Бэкап и откат</h3><p>Перед записью — снимок в собственный git-репозиторий бэкапов. Любую операцию можно откатить из истории.</p></div>
+          <div class="card"><div class="icon o">✱</div><h3>Бережно с Codex</h3><p>В память Codex — только заметки, которые он вливает сам. Сгенерированные файлы ai-memory не трогает и заметки не удаляет.</p></div>
+          <div class="card"><div class="icon">≡</div><h3>Родные форматы</h3><p>Frontmatter, порядок ключей и неизвестные поля сохраняются; непонятная структура — предупреждение, а не ошибка.</p></div>
+          <div class="card"><div class="icon o">⟳</div><h3>Обновление со сверкой</h3><p>Новая версия скачивается из выпуска на GitHub и сверяется по SHA-256 до установки.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="download">
+      <div class="wrap">
+        <h2>Скачать ai-memory</h2>
+        <p class="sub" id="version-line">Пакеты — на странице <a href="https://github.com/yarkovaleksei/ai-memory/releases/latest">последнего выпуска</a>. MCP-мост входит в каждый пакет.</p>
+        <div class="platforms">
+          <div class="card platform" data-os="linux">
+            <h3>Linux</h3>
+            <p class="req">x86_64 · GTK 4 и WebKitGTK 6.0 подтянутся сами</p>
+            <div class="dl">
+              <a data-asset="deb" href="https://github.com/yarkovaleksei/ai-memory/releases/latest">.deb <span>Ubuntu 24.04+, Debian 13+</span></a>
+              <a data-asset="rpm" href="https://github.com/yarkovaleksei/ai-memory/releases/latest">.rpm <span>Fedora 40+</span></a>
+              <a data-asset="arch" href="https://github.com/yarkovaleksei/ai-memory/releases/latest">.pkg.tar.zst <span>Arch Linux</span></a>
+            </div>
+            <pre><code>sudo apt install ./ai-memory_*_amd64.deb</code></pre>
+            <p class="note">В Ubuntu пакет ставит профиль AppArmor, без которого песочница WebKit не запускается.</p>
+          </div>
+          <div class="card platform" data-os="mac">
+            <h3>macOS</h3>
+            <p class="req">macOS 12+ · Apple Silicon и Intel</p>
+            <div class="dl">
+              <a data-asset="dmg" href="https://github.com/yarkovaleksei/ai-memory/releases/latest">.dmg <span>универсальный</span></a>
+            </div>
+            <p class="note">Приложение не нотаризовано. При первом запуске откройте «Конфиденциальность и безопасность» и нажмите «Всё равно открыть» или снимите карантин:</p>
+            <pre style="margin-top:10px"><code>xattr -dr com.apple.quarantine /Applications/ai-memory.app</code></pre>
+          </div>
+          <div class="card platform" data-os="windows">
+            <h3>Windows</h3>
+            <p class="req">Windows 10 и 11 · x64</p>
+            <div class="dl">
+              <a data-asset="nsis" href="https://github.com/yarkovaleksei/ai-memory/releases/latest">Установщик .exe <span>для текущего пользователя</span></a>
+            </div>
+            <p class="note">Установщик не подписан: SmartScreen предупредит — «Подробнее» → «Выполнить в любом случае». Права администратора не нужны, WebView2 установщик докачает сам.</p>
+          </div>
+        </div>
+        <div class="honest">Проверено на Linux. Пакеты для macOS и Windows собираются в CI, но на этих системах ещё не запускались — если попробуете, <a href="https://github.com/yarkovaleksei/ai-memory/issues">расскажите в issues</a>, как прошло. Контрольные суммы лежат в выпуске в <code>SHA256SUMS-&lt;система&gt;.txt</code>.</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>ai-memory · MIT</span>
+      <a href="https://github.com/yarkovaleksei/ai-memory">Исходники</a>
+      <a href="https://github.com/yarkovaleksei/ai-memory/releases">Все выпуски</a>
+      <a href="https://github.com/yarkovaleksei/ai-memory/issues">Задачи</a>
+      <span class="spacer"></span>
+      <span>Не связан с Anthropic и OpenAI.</span>
+    </div>
+  </footer>
+
+  <script>
+    // Прямые ссылки на пакеты последнего выпуска (ADR-032). Без ответа API
+    // ссылки остаются на странице выпуска — она открывается всегда.
+    (() => {
+      const repo = 'yarkovaleksei/ai-memory';
+      // Окончания имён — те же, под которыми пакеты выкладывает выпуск (ADR-031).
+      const suffix = {
+        deb: '_amd64.deb',
+        rpm: '.x86_64.rpm',
+        arch: '-x86_64.pkg.tar.zst',
+        dmg: '-macos-universal.dmg',
+        nsis: '-windows-amd64-setup.exe',
+      };
+      const label = { linux: 'Linux', mac: 'macOS', windows: 'Windows' };
+
+      const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+      const ua = navigator.userAgent || '';
+      const os = /win/i.test(platform) ? 'windows'
+        : /mac/i.test(platform) && !/iphone|ipad/i.test(ua) ? 'mac'
+        : /linux/i.test(platform) && !/android/i.test(ua) ? 'linux' : '';
+      if (os) {
+        document.querySelector(`.platform[data-os="${os}"]`)?.classList.add('current');
+        document.getElementById('hero-download').textContent = `Скачать для ${label[os]}`;
+      }
+
+      const date = (s) => new Date(s).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+      fetch(`https://api.github.com/repos/${repo}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } })
+        .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+        .then((rel) => {
+          if (!/^v\d+\.\d+\.\d+$/.test(rel.tag_name || '')) return;
+          const version = rel.tag_name.slice(1);
+          for (const a of document.querySelectorAll('a[data-asset]')) {
+            const asset = (rel.assets || []).find((x) => x.name.endsWith(suffix[a.dataset.asset]));
+            if (asset) a.href = asset.browser_download_url;
+          }
+          const when = rel.published_at ? ` от ${date(rel.published_at)}` : '';
+          document.getElementById('hero-version').textContent = `Версия ${version}${when}`;
+          const line = document.getElementById('version-line');
+          line.textContent = `Версия ${version}${when} — MCP-мост входит в каждый пакет. `;
+          const notes = document.createElement('a');
+          notes.href = rel.html_url;
+          notes.textContent = 'Что нового';
+          line.append(notes);
+        })
+        .catch(() => {});
+    })();
+  </script>
+</body>
+</html>

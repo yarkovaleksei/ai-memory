@@ -1,0 +1,46 @@
+# Сайт проекта на GitHub Pages (ADR-032): статическая страница из www/ без
+# сборки. Публикуется по push в main с изменениями сайта и вручную.
+# Адрес: https://yarkovaleksei.github.io/ai-memory/
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "www/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Публикации идут по одной и не прерывают друг друга на середине.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # В форках Pages не настроены — там публиковать нечего.
+    if: github.repository == 'yarkovaleksei/ai-memory'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: www
+          retention-days: 1
+
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -63,6 +63,7 @@ internal/
 cmd/ai-memory-mcp/      MCP-сервер: флаги и stdio (фаза 5)
 frontend/               Vite + React + react-admin, yarn 4
 fixtures/               поддельные каталоги памяти для тестов
+www/                    сайт на GitHub Pages: одна статическая страница (ADR-032)
 build/                  ресурсы сборки Wails
 Taskfile.yml            задачи сборки и проверок
 ```

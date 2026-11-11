@@ -1,6 +1,6 @@
 # ai-memory
 
-[English version](README.en.md)
+[English version](README.en.md) · Сайт: [yarkovaleksei.github.io/ai-memory](https://yarkovaleksei.github.io/ai-memory/)
 
 Десктоп-приложение для памяти Claude Code и Codex: память, инструкции и навыки обоих агентов на одном экране, правка с откатом и перенос между агентами.
 
@@ -164,6 +164,7 @@ internal/             ядро: модель, адаптеры Claude и Codex,
 frontend/             интерфейс на react-admin, yarn 4              (фаза 0–1)
 cmd/ai-memory-mcp/    MCP-мост: stdio-сервер поверх ядра            (фаза 5)
 fixtures/             поддельные каталоги памяти для тестов         (фаза 0)
+www/                  сайт проекта на GitHub Pages                  (фаза 6)
 ```
 
 Подробная раскладка пакетов — в [architecture.md](plan/architecture.md#структура-репозитория).

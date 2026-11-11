@@ -89,6 +89,7 @@ wails3 task mcp:dev      # то же плюс команды, которые п�
 
 - Перед коммитом должна проходить `wails3 task check`.
 - `lint` сначала собирает фронтенд: пакету `main` для `go vet` нужен `frontend/dist` (`//go:embed`).
+- Сайт — `www/index.html` без сборки, публикуется `.github/workflows/pages.yml` по push в `main` ([ADR-032](plan/decisions.md#adr-032-сайт--статическая-страница-в-www-на-github-pages)). Перед push смотри его в браузере: `python3 -m http.server 8765 --directory www` (для Claude Code — конфигурация `site` в `.claude/launch.json`). Скриншоты — только с окна на `fixtures/`, без путей с машины разработчика.
 - Сборка пакетов и выпуск версии — по навыкам `ai-memory-build` и `ai-memory-release` в `.agents/skills/` (для Claude Code — симлинки в `.claude/skills/`, [ADR-030](plan/decisions.md#adr-030-релиз-выкладывается-черновиком-и-публикуется-после-сверки-по-api)).
 - Пакеты: установщик Windows собирается и на Linux, нужен `makensis` (NSIS); универсальный `.app` и `.dmg` — только на macOS. Пакеты macOS и Windows для релиза собирает CI по тегу `vX.Y.Z`, Linux — владелец локально ([ADR-027](plan/decisions.md#adr-027-упаковка-без-подписи-deb-rpm-arch-dmg-и-nsis-с-mcp-мостом), [ADR-029](plan/decisions.md#adr-029-linux-собирается-локально-macos-и-windows--в-ci)).
 - `frontend/bindings` коммитится. Поменял сервис в `internal/app` — перегенерируй привязки в том же коммите; CI проверяет, что они совпадают с Go-кодом.

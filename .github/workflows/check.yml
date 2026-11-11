@@ -1,10 +1,17 @@
 # Проверки на трёх системах (ADR-009): тесты, линтеры, типы.
 name: check
 
+# Сайт (www/ и его публикация) проверять нечем: изменения только в нём
+# проверки не запускают (ADR-032). Любой другой файл в том же push — запускает.
 on:
   push:
     branches: [main]
+    paths: &checked-paths
+      - "**"
+      - "!www/**"
+      - "!.github/workflows/pages.yml"
   pull_request:
+    paths: *checked-paths
 
 permissions:
   contents: read

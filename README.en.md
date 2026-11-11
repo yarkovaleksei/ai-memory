@@ -1,6 +1,6 @@
 # ai-memory
 
-[Русская версия](README.md)
+[Русская версия](README.md) · Website (in Russian): [yarkovaleksei.github.io/ai-memory](https://yarkovaleksei.github.io/ai-memory/)
 
 A desktop app for the memory of Claude Code and Codex: memory, instructions and skills of both agents on one screen, editing with undo, and moving things from one agent to the other.
 
