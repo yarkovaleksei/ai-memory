@@ -77,11 +77,13 @@ wails3 task fmt          # отформатировать Go и фронтенд
 wails3 task bindings     # перегенерировать frontend/bindings после изменения сервисов в internal/app
 wails3 task build        # собрать бинарь в bin/
 wails3 task build:mcp    # собрать MCP-мост bin/ai-memory-mcp (без Wails и фронтенда)
+wails3 task package      # пакеты текущей ОС с окном и мостом в bin/; версия — из тега vX.Y.Z (wails3 task version)
 wails3 task mcp:dev      # то же плюс команды, которые подключают мост к Claude Code и Codex на копии фикстур
 ```
 
 - Перед коммитом должна проходить `wails3 task check`.
 - `lint` сначала собирает фронтенд: пакету `main` для `go vet` нужен `frontend/dist` (`//go:embed`).
+- Пакеты: установщик Windows собирается и на Linux, нужен `makensis` (NSIS); универсальный `.app` и `.dmg` — только на macOS. Релиз собирает CI по тегу `vX.Y.Z` ([ADR-027](plan/decisions.md#adr-027-упаковка-без-подписи-deb-rpm-arch-dmg-и-nsis-с-mcp-мостом)).
 - `frontend/bindings` коммитится. Поменял сервис в `internal/app` — перегенерируй привязки в том же коммите; CI проверяет, что они совпадают с Go-кодом.
 - TypeScript закреплён на 6.0: `typescript-eslint` пока не поддерживает 7.x. Обновлять вместе.
 - `Route` и прочее из роутера импортируй из `react-router-dom`, как сам react-admin: иначе в тестах получаются два экземпляра роутера.

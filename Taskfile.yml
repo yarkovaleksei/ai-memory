@@ -11,6 +11,15 @@ vars:
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   # Целевая ОС для build/package/run. По умолчанию — текущая, переопределяется GOOS.
   GOOS: '{{.GOOS | default OS}}'
+  # Версия — из последнего тега vX.Y.Z (ADR-027): у релиза это сам тег, между
+  # тегами — «1.2.0-3-gabc123», без тегов — 0.0.1-dev. Переопределяется
+  # переменной окружения VERSION или `wails3 task … APP_VERSION=1.2.0`.
+  # Вшивается в окно и в ai-memory-mcp через -X main.version.
+  GIT_DESCRIBE:
+    sh: git describe --tags --match "v[0-9]*" --dirty 2>/dev/null || echo v0.0.1-dev
+  APP_VERSION: '{{.VERSION | default (trimPrefix "v" .GIT_DESCRIBE)}}'
+  # Числовая часть X.Y.Z: установщик Windows и Info.plist другой не принимают.
+  APP_VERSION_NUM: '{{regexFind "^[0-9]+[.][0-9]+[.][0-9]+" .APP_VERSION | default "0.0.1"}}'
 
 includes:
   common: ./build/Taskfile.yml
@@ -26,12 +35,24 @@ tasks:
 
   build:mcp:
     summary: Собрать MCP-мост bin/ai-memory-mcp — без Wails, GTK и фронтенда
+    # Мост — обычное консольное приложение на чистом Go: CGO не нужен, поэтому
+    # собирается под любую ОС и архитектуру с любой машины. Пакеты кладут его
+    # рядом с окном (ADR-027).
     vars:
       EXT: '{{if eq .GOOS "windows"}}.exe{{end}}'
+      OUTPUT: '{{.OUTPUT | default (print .BIN_DIR "/ai-memory-mcp" .EXT)}}'
     env:
       GOOS: "{{.GOOS}}"
+      GOARCH: "{{.ARCH | default ARCH}}"
+      CGO_ENABLED: "0"
     cmds:
-      - go build -trimpath -o {{.BIN_DIR}}/ai-memory-mcp{{.EXT}} ./cmd/ai-memory-mcp
+      - go build -trimpath -buildvcs=false -ldflags="-s -w -X main.version={{.APP_VERSION}}" -o "{{.OUTPUT}}" ./cmd/ai-memory-mcp
+
+  version:
+    summary: Напечатать версию, которая попадёт в сборку
+    silent: true
+    cmds:
+      - echo "{{.APP_VERSION}}"
 
   mcp:dev:
     summary: Собрать MCP-мост и напечатать команды, которые подключают его к Claude Code и Codex на копии фикстур
@@ -67,7 +88,9 @@ tasks:
           echo "    -c 'mcp_servers.ai-memory.env={AI_MEMORY_CLAUDE_DIRS=\"{{.FX}}/.claude:{{.FX}}/.claude-work\",AI_MEMORY_CODEX_HOME=\"{{.FX}}/.codex\",AI_MEMORY_AGENTS_DIR=\"{{.FX}}/.agents\",AI_MEMORY_DATA_DIR=\"{{.ROOT_DIR}}/.task/ai-memory-data\",AI_MEMORY_CONFIG_DIR=\"{{.ROOT_DIR}}/.task/ai-memory-config\"}'"
 
   package:
-    summary: Собрать установочный пакет для текущей ОС
+    summary: Собрать установочные пакеты для текущей ОС вместе с MCP-мостом (ADR-027)
+    # Linux — deb, rpm и пакет Arch; macOS — универсальный .app в .dmg;
+    # Windows — установщик NSIS для текущего пользователя. Всё — в bin/.
     cmds:
       - task: "{{.GOOS}}:package"
 

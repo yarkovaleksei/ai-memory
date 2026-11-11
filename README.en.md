@@ -4,7 +4,7 @@
 
 A desktop app for the memory of Claude Code and Codex: browse it by project, search it, edit and delete entries, move facts from one agent to the other, and merge duplicates.
 
-> **Status:** phases 1 (browsing), 2 (editing), 3 (cross-agent), 4 (instructions and skills) and 5 (the MCP bridge) are done; next is phase 6, packaging. The window shows Claude Code and Codex memory by project, with search; Claude facts can be edited, created and deleted, and Codex gets notes. Records move between agents, and the ones checked in the list can be merged and checked for contradictions, optionally with a draft from the model. Instructions (`CLAUDE.md`, `AGENTS.md`, rules) and skills sit next to the memory: a rule moves between `CLAUDE.md` and `AGENTS.md` as a section, and a skill is installed into the other agent as a copy or a symlink. Through the `ai-memory-mcp` bridge, an agent searches the other agent's memory while it works. Every write goes through a diff, a backup and a history with undo; writing needs `git`. Work follows the [plan](plan/README.md). How to run and check it: the commands section of [AGENTS.md](AGENTS.md). The plan and the developer docs are written in Russian.
+> **Status:** phases 1 (browsing), 2 (editing), 3 (cross-agent), 4 (instructions and skills) and 5 (the MCP bridge) are done. Phase 6, packaging, is in progress: packages for all three systems build, but so far they are tested on Linux only. The window shows Claude Code and Codex memory by project, with search; Claude facts can be edited, created and deleted, and Codex gets notes. Records move between agents, and the ones checked in the list can be merged and checked for contradictions, optionally with a draft from the model. Instructions (`CLAUDE.md`, `AGENTS.md`, rules) and skills sit next to the memory: a rule moves between `CLAUDE.md` and `AGENTS.md` as a section, and a skill is installed into the other agent as a copy or a symlink. Through the `ai-memory-mcp` bridge, an agent searches the other agent's memory while it works. Every write goes through a diff, a backup and a history with undo; writing needs `git`. Work follows the [plan](plan/README.md). How to run and check it: the commands section of [AGENTS.md](AGENTS.md). The plan and the developer docs are written in Russian.
 
 ## Why
 
@@ -44,6 +44,48 @@ extra_claude_profiles = ["~/.claude-work", "~/.claude-personal"]
 
 A directory listed twice, including through a symlink, is read once. Settings are read at startup; restart the app after editing them.
 
+## Installation
+
+Packages are in the [GitHub releases](https://github.com/yarkovaleksei/ai-memory/releases), together with `SHA256SUMS`. The MCP bridge `ai-memory-mcp` is installed with the window. The packages are not signed ([ADR-027](plan/decisions.md#adr-027-упаковка-без-подписи-deb-rpm-arch-dmg-и-nsis-с-mcp-мостом)), so macOS and Windows ask for confirmation on first launch. How to give it is below.
+
+| System | Package | Window | MCP bridge |
+|---|---|---|---|
+| Ubuntu 24.04+, Debian 13+ | `ai-memory_X.Y.Z_amd64.deb` | application menu, `ai-memory` | `/usr/bin/ai-memory-mcp` |
+| Fedora 40+ | `ai-memory-X.Y.Z.x86_64.rpm` | application menu, `ai-memory` | `/usr/bin/ai-memory-mcp` |
+| Arch Linux | `ai-memory-X.Y.Z-x86_64.pkg.tar.zst` | application menu, `ai-memory` | `/usr/bin/ai-memory-mcp` |
+| macOS 12+, Apple Silicon and Intel | `ai-memory-X.Y.Z-macos-universal.dmg` | Applications → ai-memory | `/Applications/ai-memory.app/Contents/MacOS/ai-memory-mcp` |
+| Windows 10 and 11, x64 | `ai-memory-X.Y.Z-windows-amd64-setup.exe` | Start menu and a desktop shortcut | `%LOCALAPPDATA%\Programs\ai-memory\ai-memory-mcp.exe` |
+
+**Linux.** Install with the usual package manager; it pulls in GTK 4 and WebKitGTK 6.0:
+
+```bash
+sudo apt install ./ai-memory_X.Y.Z_amd64.deb
+```
+
+```bash
+sudo dnf install ./ai-memory-X.Y.Z.x86_64.rpm
+```
+
+```bash
+sudo pacman -U ./ai-memory-X.Y.Z-x86_64.pkg.tar.zst
+```
+
+**macOS.** Open the `.dmg` and drag ai-memory to Applications. The app is not notarized, so on first launch macOS says it cannot verify the developer. There are two ways to allow it:
+- open System Settings → Privacy & Security and click "Open Anyway" next to the message about ai-memory;
+- or remove the quarantine flag in a terminal. The command also clears it from the MCP bridge inside the app:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/ai-memory.app
+```
+
+**Windows.** Run the installer. SmartScreen shows "Windows protected your PC": click "More info", then "Run anyway". The installer puts ai-memory in `%LOCALAPPDATA%\Programs\ai-memory` for the current user and needs no administrator rights. If WebView2 is missing, the installer downloads it.
+
+**Updating** means installing the new package over the old one. The index, backups and settings live in the user's data and settings directories (see Privacy), and packages never touch them. They also stay after uninstalling; delete them by hand if you no longer need them.
+
+**From source:** `wails3 task package` builds the packages for the current system into `bin/`. Requirements: the commands section of [AGENTS.md](AGENTS.md).
+
+Tested on Linux only. The macOS and Windows packages are built in CI but have not been run on those systems yet. Where agent memory lives there is not verified either ([Q10](plan/open-questions.md)).
+
 ## MCP bridge
 
 `ai-memory-mcp` is a separate binary with no window, Wails or GTK. The agent itself runs it as a stdio MCP server, and while it works it can find what the other agent knows about the project. The tools only read:
@@ -56,17 +98,17 @@ A directory listed twice, including through a symlink, is read once. Settings ar
 
 The bridge writes nothing: neither to agent memory nor to the ai-memory data directory. It keeps its index in process memory and re-reads the files at most every 10 seconds. Memory roots are the same as the window's: environment variables and `config.toml`.
 
-Build it with `wails3 task build:mcp`; the binary lands in `bin/`. Connect it for all projects (use your own path):
+The bridge is installed with the app; its path on each system is in the table under Installation. From source, `wails3 task build:mcp` builds it into `bin/`. Connect it for all projects (the example uses the Linux path):
 
 ```bash
-claude mcp add --scope user ai-memory -- /home/me/bin/ai-memory-mcp -agent claude
+claude mcp add --scope user ai-memory -- /usr/bin/ai-memory-mcp -agent claude
 ```
 
-In Codex, run `codex mcp add ai-memory -- /home/me/bin/ai-memory-mcp -agent codex` or add a section to `~/.codex/config.toml`:
+In Codex, run `codex mcp add ai-memory -- /usr/bin/ai-memory-mcp -agent codex` or add a section to `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.ai-memory]
-command = "/home/me/bin/ai-memory-mcp"
+command = "/usr/bin/ai-memory-mcp"
 args = ["-agent", "codex"]
 ```
 

@@ -1,0 +1,120 @@
+# Релиз по тегу vX.Y.Z (ADR-027): пакеты собираются каждый на своей системе и
+# прикладываются к релизу GitHub вместе с SHA256SUMS. Пакеты не подписаны —
+# как их открыть, написано в README, раздел «Установка».
+name: release
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux — на 24.04: в ней есть GTK 4 и WebKitGTK 6.0, от которых
+        # зависят пакеты. macOS собирает универсальный .app (arm64 + amd64).
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      # Версия — из тега без «v». Явно, а не из git describe: после yarn
+      # install и генерации привязок дерево может стать «грязным».
+      VERSION: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Версия из тега
+        run: echo "VERSION=${VERSION#v}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: yarn через corepack
+        run: corepack enable
+
+      - name: Системные библиотеки Wails (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+
+      - name: NSIS (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          if ! command -v makensis >/dev/null; then choco install nsis -y; fi
+          echo "C:/Program Files (x86)/NSIS" >> "$GITHUB_PATH"
+
+      - name: wails3
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
+
+      - name: Зависимости фронтенда
+        run: wails3 task deps
+
+      - name: Тесты
+        run: wails3 task test
+
+      - name: Пакеты
+        run: wails3 task package APP_VERSION="$VERSION"
+
+      - name: Имена с версией и системой
+        run: |
+          mkdir dist
+          case "$RUNNER_OS" in
+            Linux)
+              mv bin/ai-memory.deb "dist/ai-memory_${VERSION}_amd64.deb"
+              mv bin/ai-memory.rpm "dist/ai-memory-${VERSION}.x86_64.rpm"
+              mv bin/ai-memory.pkg.tar.zst "dist/ai-memory-${VERSION}-x86_64.pkg.tar.zst"
+              ;;
+            macOS)
+              mv bin/*.dmg "dist/ai-memory-${VERSION}-macos-universal.dmg"
+              ;;
+            Windows)
+              mv bin/*-installer.exe "dist/ai-memory-${VERSION}-windows-amd64-setup.exe"
+              ;;
+          esac
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ runner.os }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: packages-*
+          merge-multiple: true
+          path: dist
+
+      - name: Контрольные суммы
+        working-directory: dist
+        run: sha256sum * > SHA256SUMS
+
+      - name: Релиз
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "ai-memory ${GITHUB_REF_NAME#v}" \
+            --notes "Пакеты не подписаны. Установка и подключение MCP-моста: https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/README.md#установка" \
+            --generate-notes

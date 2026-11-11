@@ -44,7 +44,7 @@ tasks:
       - wails3 tool prepare-macos-output --dir "{{.BIN_DIR}}"
       - '{{if eq .OBFUSCATED "true"}}garble {{.GARBLE_ARGS}} build{{else}}go build{{end}} {{.BUILD_FLAGS}} -o "{{.OUTPUT}}"'
     vars:
-      BUILD_FLAGS: '{{if eq .DEV "true"}}{{if or .EXTRA_TAGS (eq .OBFUSCATED "true")}}-tags {{if eq .OBFUSCATED "true"}}wails_obfuscated{{if .EXTRA_TAGS}},{{end}}{{end}}{{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
+      BUILD_FLAGS: '{{if eq .DEV "true"}}{{if or .EXTRA_TAGS (eq .OBFUSCATED "true")}}-tags {{if eq .OBFUSCATED "true"}}wails_obfuscated{{if .EXTRA_TAGS}},{{end}}{{end}}{{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s -X main.version={{.APP_VERSION}}"{{end}}'
       DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
     env:
@@ -115,25 +115,56 @@ tasks:
       - rm -f "{{.BIN_DIR}}/{{.APP_NAME}}-amd64" "{{.BIN_DIR}}/{{.APP_NAME}}-arm64"
 
   package:
-    summary: Packages the application into a `.app` bundle
+    summary: Универсальный .app (arm64 + amd64) с MCP-мостом в .dmg — релизный пакет macOS (ADR-027)
     deps:
-      - task: build
+      - task: build:universal
+      - task: build:mcp:universal
     cmds:
       - task: create:app:bundle
+      - task: create:dmg
+
+  package:app:
+    summary: Packages the application into a `.app` bundle for the current architecture
+    deps:
+      - task: build
+      - task: :build:mcp
+        vars:
+          GOOS: darwin
+    cmds:
+      - task: create:app:bundle
+
+  build:mcp:universal:
+    summary: Универсальный бинарь MCP-моста (arm64 + amd64)
+    deps:
+      - task: :build:mcp
+        vars:
+          GOOS: darwin
+          ARCH: amd64
+          OUTPUT: "{{.BIN_DIR}}/ai-memory-mcp-amd64"
+      - task: :build:mcp
+        vars:
+          GOOS: darwin
+          ARCH: arm64
+          OUTPUT: "{{.BIN_DIR}}/ai-memory-mcp-arm64"
+    cmds:
+      - cmd: lipo -create -output "{{.BIN_DIR}}/ai-memory-mcp" "{{.BIN_DIR}}/ai-memory-mcp-amd64" "{{.BIN_DIR}}/ai-memory-mcp-arm64"
+        platforms: [darwin]
+      - cmd: wails3 tool lipo -output "{{.BIN_DIR}}/ai-memory-mcp" -input "{{.BIN_DIR}}/ai-memory-mcp-amd64" -input "{{.BIN_DIR}}/ai-memory-mcp-arm64"
+        platforms: [linux, windows]
+      - rm -f "{{.BIN_DIR}}/ai-memory-mcp-amd64" "{{.BIN_DIR}}/ai-memory-mcp-arm64"
 
   package:universal:
     summary: Packages darwin universal binary (arm64 + amd64)
     deps:
       - task: build:universal
+      - task: build:mcp:universal
     cmds:
       - task: create:app:bundle
 
   package:dmg:
-    summary: Packages the application into a styled `.dmg`
-    deps:
-      - task: package
+    summary: Packages the application into a styled `.dmg` (то же, что package)
     cmds:
-      - task: create:dmg
+      - task: package
 
   create:dmg:
     summary: Creates a configurable `.dmg` from the `.app` bundle
@@ -170,7 +201,14 @@ tasks:
           cp build/darwin/Assets.car "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources"
         fi
       - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS"
+      # MCP-мост живёт внутри .app рядом с окном: путь к нему известен —
+      # /Applications/ai-memory.app/Contents/MacOS/ai-memory-mcp (ADR-027).
+      - cp "{{.BIN_DIR}}/ai-memory-mcp" "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS"
       - cp build/darwin/Info.plist "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents"
+      - cmd: |
+          plutil -replace CFBundleShortVersionString -string "{{.APP_VERSION_NUM}}" "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Info.plist"
+          plutil -replace CFBundleVersion -string "{{.APP_VERSION_NUM}}" "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Info.plist"
+        platforms: [darwin]
       - task: '{{if eq OS "darwin"}}codesign:adhoc{{else}}codesign:skip{{end}}'
 
   codesign:adhoc:

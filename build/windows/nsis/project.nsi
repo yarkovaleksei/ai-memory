@@ -93,6 +93,12 @@ Section
     
     !insertmacro wails.files
 
+    # MCP-мост — рядом с окном: агенты запускают его по известному пути
+    # %LOCALAPPDATA%\Programs\ai-memory\ai-memory-mcp.exe (ADR-027).
+    !ifdef ARG_MCP_BINARY
+        File "/oname=ai-memory-mcp.exe" "${ARG_MCP_BINARY}"
+    !endif
+
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
 
